@@ -2,6 +2,48 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+type SpeechRecognitionAlternativeLike = {
+    transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+    [index: number]: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionResultListLike = {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+};
+
+type SpeechRecognitionEventLike = Event & {
+    resultIndex: number;
+    results: SpeechRecognitionResultListLike;
+};
+
+type SpeechRecognitionErrorEventLike = Event & {
+    error: string;
+};
+
+interface SpeechRecognitionInstance {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    start: () => void;
+    stop: () => void;
+    onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+    onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+    onend: (() => void) | null;
+}
+
+interface SpeechRecognitionConstructor {
+    new (): SpeechRecognitionInstance;
+}
+
+interface SpeechRecognitionWindow extends Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+}
+
 
 type Feedback = {
     overall: number;
@@ -207,7 +249,7 @@ function StarScore({
 
 export default function SetupForm() {
     const sessionEndedRef = useRef(false);
-    const recognitionRef = useRef<any>(null);
+    const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
     const voiceBaseAnswerRef = useRef("");
 
     const [role, setRole] = useState("");
@@ -259,8 +301,8 @@ export default function SetupForm() {
 
     function startListening() {
         const SpeechRecognition =
-            (window as any).SpeechRecognition ||
-            (window as any).webkitSpeechRecognition;
+            (window as SpeechRecognitionWindow).SpeechRecognition ||
+            (window as SpeechRecognitionWindow).webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
             setError(
@@ -281,7 +323,7 @@ export default function SetupForm() {
 
         voiceBaseAnswerRef.current = answer.trim();
 
-        recognition.onresult = (event: any) => {
+        recognition.onresult = (event: SpeechRecognitionEventLike) => {
             let transcript = "";
 
             for (
@@ -299,7 +341,7 @@ export default function SetupForm() {
             );
         };
 
-        recognition.onerror = (event: any) => {
+        recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
             if (event.error !== "no-speech" && event.error !== "aborted") {
                 setError(
                     "Voice input stopped unexpectedly. Please try again."
@@ -1185,3 +1227,5 @@ export default function SetupForm() {
         </section>
     );
 }
+
+
