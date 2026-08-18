@@ -2,26 +2,1046 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================
+   AI INTERVIEW SIMULATOR
+   Chrome Dino Game × Modern Interview Dashboard
+   ========================================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f1e6;
+  --foreground: #1f2937;
+
+  --pixel-dark: #1f2937;
+  --pixel-border: #374151;
+  --pixel-shadow: #1f2937;
+
+  --game-green: #4f772d;
+  --game-green-dark: #31572c;
+
+  --game-blue: #2563eb;
+  --game-red: #dc2626;
+  --game-yellow: #d97706;
+
+  --paper: #fffdf7;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #10151d;
+  --foreground: #e5e7eb;
+
+  --pixel-dark: #e5e7eb;
+  --pixel-border: #64748b;
+  --pixel-shadow: #020617;
+
+  --paper: #18202b;
+}
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+
+  /* Subtle retro grid texture */
+  background-image:
+    linear-gradient(rgba(31, 41, 55, 0.035) 1px,
+      transparent 1px),
+    linear-gradient(90deg,
+      rgba(31, 41, 55, 0.035) 1px,
+      transparent 1px);
+  background-size: 24px 24px;
 }
+
+.dark body {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.035) 1px,
+      transparent 1px),
+    linear-gradient(90deg,
+      rgba(148, 163, 184, 0.035) 1px,
+      transparent 1px);
+}
+
+/* =========================================================
+   PIXEL GAME CARDS
+   Applies retro styling to existing rounded cards
+   ========================================================= */
+
+.bg-white {
+  border: 2px solid var(--pixel-border);
+  border-radius: 6px !important;
+  box-shadow: 5px 5px 0 var(--pixel-shadow);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* Don't make tiny nested elements look like giant cards */
+.bg-white:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 var(--pixel-shadow);
+}
+
+/* Softer panels */
+.bg-slate-50,
+.bg-slate-100 {
+  border: 1px solid var(--pixel-border);
+  border-radius: 4px !important;
+}
+
+/* =========================================================
+   BUTTONS
+   Arcade / Dino-game controls
+   ========================================================= */
+
+button {
+  border-radius: 4px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.025em;
+  border: 2px solid rgba(0, 0, 0, 0.28);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.32);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.35);
+  filter: brightness(1.05);
+}
+
+button:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+/* =========================================================
+   INPUTS / TEXTAREA / SELECT
+   ========================================================= */
+
+input,
+textarea,
+select {
+  border: 2px solid var(--pixel-border) !important;
+  border-radius: 4px !important;
+  background-color: var(--paper);
+  color: var(--foreground);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  border-color: var(--game-blue) !important;
+  box-shadow: 3px 3px 0 rgba(37, 99, 235, 0.22);
+}
+
+/* =========================================================
+   RANGE SLIDER
+   ========================================================= */
+
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 10px;
+  padding: 0;
+  background: #cbd5e1;
+  border: 2px solid var(--pixel-border) !important;
+  box-shadow: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--game-green);
+  border: 2px solid #1f2937;
+  box-shadow: 2px 2px 0 #1f2937;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--game-green);
+  border: 2px solid #1f2937;
+  box-shadow: 2px 2px 0 #1f2937;
+  cursor: pointer;
+}
+
+/* =========================================================
+   PROGRESS BARS
+   Makes existing progress bars feel more game-like
+   ========================================================= */
+
+.rounded-full {
+  border-radius: 3px !important;
+}
+
+.bg-blue-600,
+.bg-blue-500 {
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+}
+
+.bg-emerald-500,
+.bg-emerald-600 {
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* =========================================================
+   QUESTION / CATEGORY BADGES
+   ========================================================= */
+
+.bg-blue-50,
+.bg-blue-100 {
+  border: 1px solid #60a5fa;
+}
+
+.bg-emerald-50,
+.bg-emerald-100 {
+  border: 1px solid #34d399;
+}
+
+.bg-amber-50,
+.bg-amber-100 {
+  border: 1px solid #fbbf24;
+}
+
+/* =========================================================
+   SCORE / FEEDBACK POLISH
+   ========================================================= */
+
+.text-amber-500 {
+  text-shadow: 1px 1px 0 rgba(120, 53, 15, 0.15);
+}
+
+.bg-amber-50 {
+  box-shadow: 3px 3px 0 rgba(146, 64, 14, 0.16);
+}
+
+.bg-emerald-50 {
+  box-shadow: 3px 3px 0 rgba(6, 78, 59, 0.14);
+}
+
+/* =========================================================
+   DARK MODE OVERRIDES
+   Preserves your existing theme behaviour
+   ========================================================= */
+
+.dark .bg-white {
+  background-color: #18202b;
+  border-color: #64748b;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: #202a36;
+  border-color: #475569;
+}
+
+.dark .bg-blue-50,
+.dark .bg-blue-50\/40 {
+  background-color: #172554;
+}
+
+.dark .bg-amber-50 {
+  background-color: #422006;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #111827;
+  color: #e5e7eb;
+  border-color: #64748b !important;
+}
+
+.dark .text-black,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: #e2e8f0;
+}
+
+.dark .text-blue-800 {
+  color: #bfdbfe;
+}
+
+.dark .text-emerald-800 {
+  color: #a7f3d0;
+}
+
+.dark .text-amber-800,
+.dark .text-amber-700 {
+  color: #fde68a;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-300,
+.dark .border-slate-400 {
+  border-color: #475569;
+}
+
+.dark .border-blue-200 {
+  border-color: #2563eb;
+}
+
+.dark .border-emerald-200 {
+  border-color: #047857;
+}
+
+.dark .border-amber-200 {
+  border-color: #b45309;
+}
+
+.dark .bg-blue-100 {
+  background-color: #1e3a8a;
+}
+
+.dark .bg-emerald-100 {
+  background-color: #064e3b;
+}
+
+.dark .bg-amber-100 {
+  background-color: #78350f;
+}
+
+.dark .text-slate-300 {
+  color: #94a3b8;
+}
+
+/* =========================================================
+   LITTLE RETRO ANIMATIONS
+   ========================================================= */
+
+@keyframes pixelPop {
+  0% {
+    transform: translateY(2px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bg-white,
+.bg-slate-50,
+.bg-slate-100 {
+  animation: pixelPop 0.25s ease-out;
+}
+
+/* =========================================================
+   UTILITIES
+   ========================================================= */
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* =========================================================
+   SMALL SCREEN POLISH
+   ========================================================= */
+
+@media (max-width: 640px) {
+  .bg-white {
+    box-shadow: 3px 3px 0 var(--pixel-shadow);
+  }
+
+  button {
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.32);
+  }
+
+  button:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.32);
+  }
+}
+
+/* =========================================================
+   PIXEL DESERT WORLD
+   ========================================================= */
+
+.dino-world {
+  isolation: isolate;
+  min-height: 100vh;
+  background:
+    linear-gradient(to bottom,
+      #f8e8bd 0%,
+      #f9e8bf 48%,
+      #e9a45d 78%,
+      #c86b2c 100%);
+}
+
+.dark .dino-world {
+  background:
+    linear-gradient(to bottom,
+      #070b1c 0%,
+      #0b1028 52%,
+      #251842 78%,
+      #43205a 100%);
+}
+
+
+/* =========================================================
+   SUN
+   ========================================================= */
+
+.pixel-sun {
+  position: fixed;
+  top: 50px;
+  right: 6vw;
+
+  width: 82px;
+  height: 82px;
+
+  background: #f6a61d;
+  border: 5px solid #ffbd35;
+  box-shadow:
+    0 0 0 5px rgba(255, 205, 82, 0.18),
+    0 0 35px rgba(246, 166, 29, 0.4);
+
+  z-index: 1;
+
+  clip-path: polygon(20% 0%,
+      80% 0%,
+      80% 8%,
+      92% 8%,
+      92% 20%,
+      100% 20%,
+      100% 80%,
+      92% 80%,
+      92% 92%,
+      80% 92%,
+      80% 100%,
+      20% 100%,
+      20% 92%,
+      8% 92%,
+      8% 80%,
+      0% 80%,
+      0% 20%,
+      8% 20%,
+      8% 8%,
+      20% 8%);
+}
+
+.dark .pixel-sun {
+  display: none;
+}
+
+
+/* =========================================================
+   MOON
+   ========================================================= */
+
+.pixel-moon {
+  display: none;
+
+  position: fixed;
+  top: 60px;
+  right: 7vw;
+
+  width: 78px;
+  height: 78px;
+
+  background: #f8edcf;
+  box-shadow:
+    0 0 30px rgba(248, 237, 207, 0.32);
+
+  z-index: 1;
+
+  clip-path: polygon(25% 0%,
+      75% 0%,
+      75% 8%,
+      88% 8%,
+      88% 20%,
+      100% 20%,
+      100% 80%,
+      88% 80%,
+      88% 92%,
+      75% 92%,
+      75% 100%,
+      25% 100%,
+      25% 92%,
+      12% 92%,
+      12% 80%,
+      0% 80%,
+      0% 20%,
+      12% 20%,
+      12% 8%,
+      25% 8%);
+}
+
+.dark .pixel-moon {
+  display: block;
+}
+
+.dark .pixel-moon::after {
+  content: "";
+
+  position: absolute;
+
+  top: 8px;
+  right: -4px;
+
+  width: 62px;
+  height: 62px;
+
+  background: #0b1028;
+
+  clip-path: polygon(25% 0%,
+      75% 0%,
+      75% 8%,
+      88% 8%,
+      88% 20%,
+      100% 20%,
+      100% 80%,
+      88% 80%,
+      88% 92%,
+      75% 92%,
+      75% 100%,
+      25% 100%,
+      25% 92%,
+      12% 92%,
+      12% 80%,
+      0% 80%,
+      0% 20%,
+      12% 20%,
+      12% 8%,
+      25% 8%);
+}
+
+
+/* =========================================================
+   PIXEL CLOUDS
+   ========================================================= */
+
+.pixel-cloud {
+  position: fixed;
+
+  width: 150px;
+  height: 45px;
+
+  background: rgba(255, 255, 255, 0.5);
+
+  z-index: 1;
+
+  opacity: 0.75;
+
+  clip-path: polygon(0 75%,
+      12% 75%,
+      12% 50%,
+      25% 50%,
+      25% 25%,
+      45% 25%,
+      45% 0,
+      65% 0,
+      65% 25%,
+      80% 25%,
+      80% 50%,
+      92% 50%,
+      92% 75%,
+      100% 75%,
+      100% 100%,
+      0 100%);
+}
+
+.pixel-cloud-one {
+  top: 130px;
+  left: 5vw;
+}
+
+.pixel-cloud-two {
+  top: 220px;
+  right: 8vw;
+  transform: scale(0.75);
+}
+
+.pixel-cloud-three {
+  top: 330px;
+  left: 10vw;
+  transform: scale(0.6);
+}
+
+.dark .pixel-cloud {
+  background: rgba(122, 92, 173, 0.22);
+}
+
+
+/* =========================================================
+   STARS
+   ========================================================= */
+
+.pixel-stars {
+  display: none;
+}
+
+.dark .pixel-stars {
+  display: block;
+
+  position: fixed;
+  inset: 0;
+
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pixel-stars span {
+  position: absolute;
+
+  width: 5px;
+  height: 5px;
+
+  background: #f7d98d;
+  box-shadow: 0 0 8px rgba(247, 217, 141, 0.6);
+}
+
+.pixel-stars span:nth-child(1) {
+  top: 12%;
+  left: 8%;
+}
+
+.pixel-stars span:nth-child(2) {
+  top: 20%;
+  left: 24%;
+}
+
+.pixel-stars span:nth-child(3) {
+  top: 10%;
+  left: 52%;
+}
+
+.pixel-stars span:nth-child(4) {
+  top: 30%;
+  left: 72%;
+}
+
+.pixel-stars span:nth-child(5) {
+  top: 18%;
+  right: 12%;
+}
+
+.pixel-stars span:nth-child(6) {
+  top: 45%;
+  left: 12%;
+}
+
+.pixel-stars span:nth-child(7) {
+  top: 38%;
+  right: 20%;
+}
+
+.pixel-stars span:nth-child(8) {
+  top: 55%;
+  right: 7%;
+}
+
+
+/* =========================================================
+   DESERT LANDSCAPE CONTAINER
+   ========================================================= */
+
+.desert-landscape {
+  position: fixed;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  height: 300px;
+
+  pointer-events: none;
+  overflow: hidden;
+
+  z-index: 2;
+}
+
+
+/* =========================================================
+   MOUNTAINS
+   ========================================================= */
+
+.mountain {
+  position: absolute;
+  bottom: 70px;
+
+  width: 420px;
+  height: 220px;
+
+  background: #d9823b;
+
+  opacity: 0.78;
+
+  clip-path: polygon(0 100%,
+      50% 0,
+      100% 100%);
+}
+
+.mountain-left {
+  left: -120px;
+}
+
+.mountain-center {
+  left: 48%;
+  width: 300px;
+  height: 155px;
+
+  background: #d28a47;
+
+  opacity: 0.55;
+}
+
+.mountain-right {
+  right: -90px;
+
+  background: #c86b2c;
+}
+
+.dark .mountain {
+  background: #49365e;
+  opacity: 0.85;
+}
+
+.dark .mountain-center {
+  background: #65406e;
+  opacity: 0.75;
+}
+
+.dark .mountain-right {
+  background: #3d3158;
+}
+
+
+/* =========================================================
+   CACTI
+   ========================================================= */
+
+.land-cactus {
+  position: absolute;
+
+  bottom: 55px;
+
+  filter:
+    drop-shadow(4px 4px 0 rgba(45, 80, 25, 0.25));
+
+  line-height: 1;
+}
+
+.cactus-one {
+  left: 3%;
+  font-size: 100px;
+}
+
+.cactus-two {
+  left: 12%;
+  font-size: 62px;
+}
+
+.cactus-three {
+  right: 12%;
+  font-size: 85px;
+}
+
+.cactus-four {
+  right: 3%;
+  font-size: 120px;
+}
+
+.dark .land-cactus {
+  filter:
+    hue-rotate(30deg) brightness(0.72) drop-shadow(4px 4px 0 rgba(0, 0, 0, 0.35));
+}
+
+
+/* =========================================================
+   ROCKS
+   ========================================================= */
+
+.desert-rock {
+  position: absolute;
+  bottom: 58px;
+
+  background: #9b5127;
+
+  border: 4px solid rgba(102, 55, 25, 0.25);
+
+  clip-path: polygon(0 100%,
+      15% 45%,
+      40% 20%,
+      70% 30%,
+      100% 100%);
+}
+
+.rock-one {
+  left: 24%;
+  width: 65px;
+  height: 38px;
+}
+
+.rock-two {
+  right: 25%;
+  width: 90px;
+  height: 48px;
+}
+
+.dark .desert-rock {
+  background: #6c3d63;
+  border-color: rgba(30, 20, 55, 0.5);
+}
+
+
+/* =========================================================
+   PIXEL DESERT GROUND
+   ========================================================= */
+
+.desert-landscape::after {
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  height: 72px;
+
+  background:
+    linear-gradient(to bottom,
+      #efad57 0%,
+      #dc8237 15%,
+      #a94e26 45%,
+      #70331f 100%);
+
+  border-top: 7px solid #f6c06b;
+
+  box-shadow:
+    0 -5px 0 #c86b2c,
+    0 -10px 0 rgba(255, 205, 111, 0.45);
+}
+
+.dark .desert-landscape::after {
+  background:
+    linear-gradient(to bottom,
+      #643b72 0%,
+      #472754 20%,
+      #2a193e 55%,
+      #160d29 100%);
+
+  border-top-color: #8b5da7;
+
+  box-shadow:
+    0 -5px 0 #3e2355,
+    0 -10px 0 rgba(123, 71, 146, 0.45);
+}
+
+
+/* =========================================================
+   HEADER HUD
+   ========================================================= */
+
+.dino-header {
+  position: relative;
+
+  background: rgba(255, 253, 247, 0.86);
+
+  border: 3px solid #2b3138;
+
+  border-radius: 0 !important;
+
+  padding: 1.5rem 1.75rem;
+
+  box-shadow:
+    6px 6px 0 #2b3138;
+
+  backdrop-filter: blur(8px);
+}
+
+.dark .dino-header {
+  background: rgba(15, 23, 42, 0.88);
+
+  border-color: #71658f;
+
+  box-shadow:
+    6px 6px 0 #080b18;
+}
+
+.dino-title {
+  margin: 0;
+
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 0.95;
+
+  font-weight: 900;
+
+  letter-spacing: 0.04em;
+
+  color: #20252b;
+
+  text-shadow:
+    2px 2px 0 rgba(217, 151, 6, 0.25);
+}
+
+.dark .dino-title {
+  color: #f3f4f6;
+
+  text-shadow:
+    3px 3px 0 rgba(123, 71, 146, 0.7);
+}
+
+.hud-label {
+  margin-bottom: 0.45rem;
+
+  font-size: 0.8rem;
+  font-weight: 800;
+
+  letter-spacing: 0.12em;
+
+  color: #59606b;
+}
+
+.dark .hud-label {
+  color: #81e6c6;
+}
+
+.hud-subtitle {
+  margin-top: 0.6rem;
+
+  font-size: 0.85rem;
+  font-weight: 800;
+
+  letter-spacing: 0.08em;
+
+  color: #a64f25;
+}
+
+.dark .hud-subtitle {
+  color: #e66ac2;
+}
+
+.hud-status {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+
+  padding: 0.65rem 0.9rem;
+
+  border: 2px solid #4d8c38;
+
+  background: rgba(245, 255, 235, 0.8);
+
+  font-size: 0.8rem;
+  font-weight: 900;
+
+  letter-spacing: 0.08em;
+
+  color: #31572c;
+
+  box-shadow: 3px 3px 0 rgba(49, 87, 44, 0.2);
+}
+
+.dark .hud-status {
+  background: rgba(11, 35, 36, 0.8);
+
+  color: #a7f3d0;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+
+  background: #4f9d3a;
+
+  border-radius: 0;
+
+  box-shadow:
+    0 0 0 2px rgba(79, 157, 58, 0.15);
+}
+
+
+/* =========================================================
+   KEEP CONTENT ABOVE THE LANDSCAPE
+   ========================================================= */
+
+.dino-world>.relative.z-10 {
+  padding-bottom: 150px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+  .pixel-sun,
+  .pixel-moon {
+    top: 25px;
+    right: 25px;
+
+    transform: scale(0.7);
+  }
+
+  .pixel-cloud-three {
+    display: none;
+  }
+
+  .mountain-center {
+    display: none;
+  }
+
+  .cactus-one {
+    left: -15px;
+    font-size: 70px;
+  }
+
+  .cactus-two {
+    display: none;
+  }
+
+  .cactus-three {
+    display: none;
+  }
+
+  .cactus-four {
+    right: -15px;
+    font-size: 85px;
+  }
+
+  .dino-header {
+    padding: 1.25rem;
+  }
+
+  .desert-landscape {
+    height: 220px;
+  }
+
+  .dino-world>.relative.z-10 {
+    padding-bottom: 100px;
   }
 }
