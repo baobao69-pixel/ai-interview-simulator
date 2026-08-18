@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+#  AI Interview Simulator
 
-## Getting Started
+An AI-powered interview practice application that generates customized interview questions and evaluates user responses using the Gemini API.
 
-First, run the development server:
+The application allows users to configure an interview based on their target role, company, interview type, experience level, and number of questions. Users can answer questions through text or voice input, receive AI-generated feedback and scores, and review their performance in a final summary.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+##  Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Core Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Customized interview setup
+- AI-generated interview questions using Gemini
+- Questions based on:
+  - Job role
+  - Company
+  - Interview type
+  - Experience level
+  - Number of questions
+- Text-based answer input
+- Word count tracking
+- Skip question functionality
+- AI-powered answer evaluation
+- Individual question scores and feedback
+- Interview progress tracking
+- Final interview summary
+- Answered and skipped question statistics
+- Question history and performance review
+- Error handling for failed API requests
+- Safe handling of Gemini quota and rate-limit errors
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Bonus Features
 
-## Learn More
+- **Voice Input**  
+  Users can speak their answers using browser speech recognition.
 
-To learn more about Next.js, take a look at the following resources:
+- **Interview Timer**  
+  Tracks the duration of the interview and displays the total interview time in the summary.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Light and Dark Mode**  
+  Users can switch between themes, and their preference is saved using `localStorage`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+-  **Custom Pixel Desert UI**  
+  A game-inspired interface featuring a desert landscape in light mode and a night landscape with stars and a moon in dark mode.
 
-## Deploy on Vercel
+## 🛠️ Tech Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Next.js 14**
+- **React**
+- **TypeScript**
+- **Tailwind CSS**
+- **Google Gemini API**
+- **Browser Web Speech API**
+- **CSS**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📂 Project Structure
+
+```text
+ai-interview-simulator/
+│
+├── app/
+│   ├── api/
+│   │   ├── interview-feedback/
+│   │   │   └── route.ts
+│   │   └── interview-question/
+│   │       └── route.ts
+│   │
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+│
+├── components/
+│   ├── SetupForm.tsx
+│   └── ThemeToggle.tsx
+│
+├── .env.local
+├── package.json
+├── tailwind.config.ts
+└── README.md
