@@ -1,49 +1,6 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-type SpeechRecognitionAlternativeLike = {
-    transcript: string;
-};
-
-type SpeechRecognitionResultLike = {
-    [index: number]: SpeechRecognitionAlternativeLike;
-};
-
-type SpeechRecognitionResultListLike = {
-    length: number;
-    [index: number]: SpeechRecognitionResultLike;
-};
-
-type SpeechRecognitionEventLike = Event & {
-    resultIndex: number;
-    results: SpeechRecognitionResultListLike;
-};
-
-type SpeechRecognitionErrorEventLike = Event & {
-    error: string;
-};
-
-interface SpeechRecognitionInstance {
-    continuous: boolean;
-    interimResults: boolean;
-    lang: string;
-    start: () => void;
-    stop: () => void;
-    onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-    onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-    onend: (() => void) | null;
-}
-
-interface SpeechRecognitionConstructor {
-    new (): SpeechRecognitionInstance;
-}
-
-interface SpeechRecognitionWindow extends Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-}
-
 
 type Feedback = {
     overall: number;
@@ -58,7 +15,6 @@ type Feedback = {
 type InterviewQuestion = {
     question: string;
     category: string;
-    tips: [string, string, string];
 };
 
 type QuestionResult = {
@@ -94,9 +50,9 @@ function formatDuration(totalSeconds: number) {
 }
 
 async function getApiError(response: Response) {
-    const data = (await response
-        .json()
-        .catch(() => null)) as { error?: unknown } | null;
+    const data = (await response.json().catch(() => null)) as {
+        error?: unknown;
+    } | null;
 
     const message =
         typeof data?.error === "string" ? data.error : "Request failed";
@@ -110,125 +66,11 @@ function errorMessage(error: unknown, fallback: string) {
         : fallback;
 }
 
-function createFallbackQuestion(
-    questionHistory: string[],
-    interviewType: string,
-    role: string
-): InterviewQuestion {
-    const technicalQuestions = [
-        "Explain the difference between an array and a linked list, and when you would choose each one.",
-        "What is the difference between a process and a thread?",
-        "Explain how a database index improves query performance and mention one trade-off.",
-        "What is the difference between authentication and authorization?",
-        "Explain the difference between synchronous and asynchronous programming with a practical example.",
-        "What happens when you enter a URL in a browser and press Enter?",
-        "Explain what an API is and how a frontend application typically communicates with one.",
-        "What is normalization in databases, and why is it useful?",
-        "Explain the difference between a stack and a queue and give one use case for each.",
-        "What is caching, and when can caching cause problems?",
-    ];
-
-    const behavioralQuestions = [
-        "Describe a time when you faced a difficult problem. How did you approach it and what was the outcome?",
-        "Tell me about a time when you had to learn something quickly to complete a task.",
-        "Describe a situation where you received critical feedback. What did you do with it?",
-        "Tell me about a time when you worked with someone who had a different approach from yours.",
-        "Describe a time when you made a mistake. How did you handle it?",
-        "Tell me about a time when you had to manage multiple priorities under pressure.",
-        "Describe a project you are proud of and explain your specific contribution.",
-        "Tell me about a time when you took initiative without being asked.",
-        "Describe a situation where something did not go according to plan. What did you learn?",
-        "Tell me about a time when you had to explain a complex idea to someone with less technical knowledge.",
-    ];
-
-    const systemDesignQuestions = [
-        "How would you design a simple URL shortening service? Explain the main components and data flow.",
-        "How would you design a notification system that can send email and in-app notifications?",
-        "How would you design a file-upload service for a web application?",
-        "How would you design a simple real-time chat application?",
-        "How would you design a system that tracks user activity events at scale?",
-        "How would you design a basic appointment-booking system?",
-        "How would you design a service that stores and retrieves user profile data efficiently?",
-        "How would you design a rate-limiting mechanism for a public API?",
-        "How would you design a basic search feature for a large collection of documents?",
-        "How would you design a leaderboard that updates frequently?",
-    ];
-
-    let pool = technicalQuestions;
-    if (interviewType === "Behavioral") pool = behavioralQuestions;
-    if (interviewType === "System Design") pool = systemDesignQuestions;
-    if (interviewType === "Mixed") {
-        pool = technicalQuestions.map((question, index) =>
-            index % 2 === 0 ? question : behavioralQuestions[index]
-        );
-    }
-
-    const unusedQuestion = pool.find(
-        (question) => !questionHistory.includes(question)
-    );
-    const question = unusedQuestion ?? pool[questionHistory.length % pool.length];
-    const category =
-        interviewType === "Mixed"
-            ? technicalQuestions.includes(question)
-                ? "Technical"
-                : "Behavioral"
-            : interviewType;
-
-    const roleLabel = role.trim() || "your target role";
-
-    return {
-        question,
-        category,
-        tips: [
-            `Keep your answer relevant to ${roleLabel}.`,
-            category === "Behavioral"
-                ? "Use a clear Situation, Action, and Result structure."
-                : "Define the core concept before giving your example.",
-            "Use one practical example instead of listing disconnected facts.",
-        ],
-    };
-}
-
-function createFallbackFeedback(
-    answer: string,
-    interviewType: string
-): Feedback {
-    const words = answer.trim() ? answer.trim().split(/\s+/).length : 0;
-    const overall = words >= 120 ? 8 : words >= 70 ? 7 : words >= 35 ? 6 : 5;
-    const clarity = Math.min(10, overall + (/[.!?]/.test(answer) ? 1 : 0));
-    const depth = Math.min(10, Math.max(4, overall + (words >= 100 ? 1 : 0)));
-    const relevance = Math.min(10, overall + (words >= 50 ? 1 : 0));
-
-    return {
-        overall,
-        clarity,
-        depth,
-        relevance,
-        strengths:
-            "Your answer addresses the question and provides a clear starting point. You kept the response focused enough to evaluate.",
-        improvements:
-            interviewType === "Behavioral"
-                ? "Add a clearer situation, explain your specific actions, and finish with a measurable result or lesson."
-                : "Add more precise technical reasoning, explain why your approach works, and support it with a concrete example or trade-off.",
-        model_answer_hint:
-            interviewType === "Behavioral"
-                ? "Structure your answer as Situation, Task, Action, Result, then briefly state what you learned."
-                : "Start with the definition, explain how it works, mention a trade-off, and give one practical example.",
-    };
-}
-
-function StarScore({
-    label,
-    score,
-}: {
-    label: string;
-    score: number;
-}) {
+function StarScore({ label, score }: { label: string; score: number }) {
     return (
         <div>
             <div className="flex items-center justify-between gap-3">
                 <span className="font-medium text-slate-700">{label}</span>
-
                 <span className="text-sm font-semibold text-slate-900">
                     {score}/10
                 </span>
@@ -249,8 +91,6 @@ function StarScore({
 
 export default function SetupForm() {
     const sessionEndedRef = useRef(false);
-    const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-    const voiceBaseAnswerRef = useRef("");
 
     const [role, setRole] = useState("");
     const [company, setCompany] = useState("");
@@ -262,10 +102,12 @@ export default function SetupForm() {
     const [interviewCompleted, setInterviewCompleted] = useState(false);
     const [totalQuestions, setTotalQuestions] = useState(0);
     const [currentQuestionNumber, setCurrentQuestionNumber] = useState(0);
+
     const [previousQuestions, setPreviousQuestions] = useState<string[]>([]);
     const [questionResults, setQuestionResults] = useState<QuestionResult[]>(
         []
     );
+
     const [currentQuestion, setCurrentQuestion] =
         useState<InterviewQuestion | null>(null);
 
@@ -280,9 +122,6 @@ export default function SetupForm() {
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-    const [isListening, setIsListening] = useState(false);
-    const [isFallbackMode, setIsFallbackMode] = useState(false);
-
     useEffect(() => {
         if (!isTimerRunning) return;
 
@@ -293,103 +132,12 @@ export default function SetupForm() {
         return () => window.clearInterval(intervalId);
     }, [isTimerRunning]);
 
-    useEffect(() => {
-        return () => {
-            recognitionRef.current?.stop();
-        };
-    }, []);
-
-    function startListening() {
-        const SpeechRecognition =
-            (window as SpeechRecognitionWindow).SpeechRecognition ||
-            (window as SpeechRecognitionWindow).webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-            setError(
-                "Voice input is not supported in this browser. Please use Google Chrome or type your answer."
-            );
-            return;
-        }
-
-        if (isListening) return;
-
-        setError("");
-
-        const recognition = new SpeechRecognition();
-
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-US";
-
-        voiceBaseAnswerRef.current = answer.trim();
-
-        recognition.onresult = (event: SpeechRecognitionEventLike) => {
-            let transcript = "";
-
-            for (
-                let i = event.resultIndex;
-                i < event.results.length;
-                i++
-            ) {
-                transcript += event.results[i][0].transcript;
-            }
-
-            const base = voiceBaseAnswerRef.current;
-
-            setAnswer(
-                `${base}${base && transcript.trim() ? " " : ""}${transcript}`.trim()
-            );
-        };
-
-        recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-            if (event.error !== "no-speech" && event.error !== "aborted") {
-                setError(
-                    "Voice input stopped unexpectedly. Please try again."
-                );
-            }
-
-            recognitionRef.current = null;
-            setIsListening(false);
-        };
-
-        recognition.onend = () => {
-            recognitionRef.current = null;
-            setIsListening(false);
-        };
-
-        recognitionRef.current = recognition;
-        setIsListening(true);
-
-        try {
-            recognition.start();
-        } catch {
-            setError("Unable to start voice input. Please try again.");
-            recognitionRef.current = null;
-            setIsListening(false);
-        }
-    }
-
-    function stopListening() {
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            recognitionRef.current = null;
-        }
-
-        setIsListening(false);
-    }
-
     async function generateQuestion(questionHistory: string[]) {
-        if (isFallbackMode) {
-            return createFallbackQuestion(
-                questionHistory,
-                interviewType,
-                role
-            );
-        }
-
         const response = await fetch("/api/interview-question", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+            },
             body: JSON.stringify({
                 role,
                 company,
@@ -400,26 +148,13 @@ export default function SetupForm() {
         });
 
         if (!response.ok) {
-            const apiError = await getApiError(response);
-
-            if (apiError.status === 429) {
-                setIsFallbackMode(true);
-                return createFallbackQuestion(
-                    questionHistory,
-                    interviewType,
-                    role
-                );
-            }
-
-            throw apiError;
+            throw await getApiError(response);
         }
 
         return (await response.json()) as InterviewQuestion;
     }
 
     function clearCurrentQuestionState() {
-        stopListening();
-        voiceBaseAnswerRef.current = "";
         setAnswer("");
         setFeedback(null);
         setAnswerSubmitted(false);
@@ -431,7 +166,6 @@ export default function SetupForm() {
         sessionEndedRef.current = false;
         setIsTimerRunning(false);
         setElapsedSeconds(0);
-        setIsFallbackMode(false);
 
         try {
             const firstQuestion = await generateQuestion([]);
@@ -441,7 +175,9 @@ export default function SetupForm() {
             setPreviousQuestions([firstQuestion.question]);
             setQuestionResults([]);
             setCurrentQuestion(firstQuestion);
+
             clearCurrentQuestionState();
+
             setInterviewCompleted(false);
             setInterviewStarted(true);
             setIsTimerRunning(true);
@@ -475,6 +211,7 @@ export default function SetupForm() {
 
             setCurrentQuestionNumber((number) => number + 1);
             setCurrentQuestion(nextQuestion);
+
             clearCurrentQuestionState();
         } catch (caughtError) {
             setError(
@@ -493,48 +230,29 @@ export default function SetupForm() {
     async function submitAnswer() {
         if (!currentQuestion) return;
 
-        stopListening();
-
         setIsEvaluating(true);
         setError("");
 
         try {
-            let questionFeedback: Feedback;
-
-            if (isFallbackMode) {
-                questionFeedback = createFallbackFeedback(
+            const response = await fetch("/api/interview-feedback", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    role,
+                    interviewType,
+                    experienceLevel,
+                    question: currentQuestion.question,
                     answer,
-                    interviewType
-                );
-            } else {
-                const response = await fetch("/api/interview-feedback", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        role,
-                        interviewType,
-                        experienceLevel,
-                        question: currentQuestion.question,
-                        answer,
-                    }),
-                });
+                }),
+            });
 
-                if (!response.ok) {
-                    const apiError = await getApiError(response);
-
-                    if (apiError.status === 429) {
-                        setIsFallbackMode(true);
-                        questionFeedback = createFallbackFeedback(
-                            answer,
-                            interviewType
-                        );
-                    } else {
-                        throw apiError;
-                    }
-                } else {
-                    questionFeedback = (await response.json()) as Feedback;
-                }
+            if (!response.ok) {
+                throw await getApiError(response);
             }
+
+            const questionFeedback = (await response.json()) as Feedback;
 
             if (sessionEndedRef.current) return;
 
@@ -569,8 +287,6 @@ export default function SetupForm() {
     async function skipQuestion() {
         if (!currentQuestion || isLoading || isEvaluating) return;
 
-        stopListening();
-
         const skippedResult: QuestionResult = {
             number: currentQuestionNumber,
             question: currentQuestion,
@@ -591,7 +307,6 @@ export default function SetupForm() {
     }
 
     function endInterview() {
-        stopListening();
         sessionEndedRef.current = true;
         setIsTimerRunning(false);
 
@@ -610,25 +325,28 @@ export default function SetupForm() {
     }
 
     function finishInterview() {
-        stopListening();
         setIsTimerRunning(false);
         setInterviewCompleted(true);
     }
 
     function resetSession() {
-        stopListening();
         sessionEndedRef.current = false;
         setIsTimerRunning(false);
         setElapsedSeconds(0);
-        setIsFallbackMode(false);
+
         setInterviewStarted(false);
         setInterviewCompleted(false);
+
         setTotalQuestions(0);
         setCurrentQuestionNumber(0);
+
         setPreviousQuestions([]);
         setQuestionResults([]);
+
         setCurrentQuestion(null);
+
         clearCurrentQuestionState();
+
         setError("");
     }
 
@@ -642,8 +360,7 @@ export default function SetupForm() {
 
     const averageScore = answeredResults.length
         ? answeredResults.reduce(
-            (total, result) =>
-                total + result.feedback!.overall,
+            (total, result) => total + result.feedback!.overall,
             0
         ) / answeredResults.length
         : null;
@@ -788,9 +505,7 @@ export default function SetupForm() {
                         : "START INTERVIEW"}
                 </button>
 
-                {error && (
-                    <p className="text-red-600">{error}</p>
-                )}
+                {error && <p className="text-red-600">{error}</p>}
             </div>
         );
     }
@@ -821,8 +536,8 @@ export default function SetupForm() {
                                         role="tooltip"
                                         className="invisible absolute bottom-full left-1/2 z-10 mb-2 w-64 -translate-x-1/2 rounded bg-slate-900 p-2 text-xs text-white opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
                                     >
-                                        Calculated using the overall scores from
-                                        answered questions only.{" "}
+                                        Calculated using the overall scores
+                                        from answered questions only.{" "}
                                         {averageFormula}
                                     </span>
                                 </span>
@@ -839,17 +554,13 @@ export default function SetupForm() {
                             <p className="text-sm text-slate-600">
                                 Answered
                             </p>
-
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {answeredResults.length}
                             </p>
                         </div>
 
                         <div className="rounded-lg bg-amber-50 p-4">
-                            <p className="text-sm text-slate-600">
-                                Skipped
-                            </p>
-
+                            <p className="text-sm text-slate-600">Skipped</p>
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {skippedCount}
                             </p>
@@ -859,7 +570,6 @@ export default function SetupForm() {
                             <p className="text-sm text-slate-600">
                                 Total Interview Time
                             </p>
-
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {formatDuration(elapsedSeconds)}
                             </p>
@@ -916,9 +626,7 @@ export default function SetupForm() {
                                         result.feedback ? (
                                         <div className="mt-3 space-y-1 text-sm text-slate-700">
                                             <p>
-                                                <strong>
-                                                    Overall score:
-                                                </strong>{" "}
+                                                <strong>Overall score:</strong>{" "}
                                                 {result.feedback.overall}/10
                                             </p>
 
@@ -928,9 +636,7 @@ export default function SetupForm() {
                                             </p>
 
                                             <p>
-                                                <strong>
-                                                    Improvements:
-                                                </strong>{" "}
+                                                <strong>Improvements:</strong>{" "}
                                                 {result.feedback.improvements}
                                             </p>
                                         </div>
@@ -959,12 +665,6 @@ export default function SetupForm() {
 
     return (
         <section className="space-y-6">
-            {isFallbackMode && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Demo fallback mode is active because the AI request limit was reached. Questions and feedback are local placeholders for testing and should not be presented as Gemini-generated results.
-                </div>
-            )}
-
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <button
                     type="button"
@@ -1019,7 +719,7 @@ export default function SetupForm() {
 
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
                     <div
-                        className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                        className="h-full rounded-full bg-blue-600"
                         style={{ width: `${progress}%` }}
                     />
                 </div>
@@ -1033,54 +733,12 @@ export default function SetupForm() {
                 <h2 className="mt-4 text-xl font-bold text-slate-900">
                     {currentQuestion.question}
                 </h2>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                    {currentQuestion.tips.map((tip) => (
-                        <span
-                            key={tip}
-                            className="rounded-full bg-slate-100 px-3 py-2 text-sm text-slate-700"
-                        >
-                            {tip}
-                        </span>
-                    ))}
-                </div>
             </div>
 
             {!answerSubmitted ? (
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <label className="font-semibold text-slate-800">
-                            Your Answer
-                        </label>
-
-                        {!isListening ? (
-                            <button
-                                type="button"
-                                onClick={startListening}
-                                disabled={isEvaluating}
-                                className="rounded-lg bg-red-500 px-4 py-2 font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                🎙️ Start Speaking
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={stopListening}
-                                className="rounded-lg bg-slate-800 px-4 py-2 font-semibold text-white transition hover:bg-slate-900"
-                            >
-                                🔴 Stop Listening
-                            </button>
-                        )}
-                    </div>
-
-                    {isListening && (
-                        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                            🔴 Listening... Speak your answer clearly.
-                        </div>
-                    )}
-
                     <textarea
-                        placeholder="Type your answer here or use voice input..."
+                        placeholder="Type your answer here..."
                         rows={10}
                         value={answer}
                         onChange={(event) => setAnswer(event.target.value)}
@@ -1158,10 +816,9 @@ export default function SetupForm() {
                             label="Clarity"
                             score={feedback.clarity}
                         />
-                        <StarScore
-                            label="Depth"
-                            score={feedback.depth}
-                        />
+
+                        <StarScore label="Depth" score={feedback.depth} />
+
                         <StarScore
                             label="Relevance"
                             score={feedback.relevance}
@@ -1227,5 +884,3 @@ export default function SetupForm() {
         </section>
     );
 }
-
-
