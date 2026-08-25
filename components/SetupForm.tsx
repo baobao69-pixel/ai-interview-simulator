@@ -94,6 +94,8 @@ export default function SetupForm() {
 
     const [role, setRole] = useState("");
     const [company, setCompany] = useState("");
+    const [jobDescription, setJobDescription] = useState("");
+    const [requiredSkills, setRequiredSkills] = useState("");
     const [interviewType, setInterviewType] = useState("Technical");
     const [experienceLevel, setExperienceLevel] = useState("Fresher");
     const [questionCount, setQuestionCount] = useState("5");
@@ -431,6 +433,32 @@ export default function SetupForm() {
                     onChange={(event) => setCompany(event.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black"
                 />
+
+                <div>
+                    <label className="font-medium text-slate-700">
+                        Job Description
+                    </label>
+                    <textarea
+                        placeholder="Paste the job description (optional)"
+                        value={jobDescription}
+                        onChange={(event) => setJobDescription(event.target.value)}
+                        rows={4}
+                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black"
+                    />
+                </div>
+
+                <div>
+                    <label className="font-medium text-slate-700">
+                        Required Skills
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="e.g. React, TypeScript, SQL, Node.js"
+                        value={requiredSkills}
+                        onChange={(event) => setRequiredSkills(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black"
+                    />
+                </div>
 
                 <div>
                     <label className="font-medium text-slate-700">
