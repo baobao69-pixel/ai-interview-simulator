@@ -2,6 +2,48 @@
 
 import { useEffect, useRef, useState } from "react";
 
+type SpeechRecognitionAlternativeLike = {
+    transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+    [index: number]: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionResultListLike = {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+};
+
+type SpeechRecognitionEventLike = Event & {
+    resultIndex: number;
+    results: SpeechRecognitionResultListLike;
+};
+
+type SpeechRecognitionErrorEventLike = Event & {
+    error: string;
+};
+
+interface SpeechRecognitionInstance {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    start: () => void;
+    stop: () => void;
+    onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+    onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+    onend: (() => void) | null;
+}
+
+interface SpeechRecognitionConstructor {
+    new(): SpeechRecognitionInstance;
+}
+
+interface SpeechRecognitionWindow extends Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+}
+
 type Feedback = {
     overall: number;
     clarity: number;
@@ -15,6 +57,8 @@ type Feedback = {
 type InterviewQuestion = {
     question: string;
     category: string;
+    difficulty: "Easy" | "Medium" | "Hard";
+    likelihood: "Most Likely" | "Likely" | "Less Likely";
 };
 
 type QuestionResult = {
@@ -25,6 +69,13 @@ type QuestionResult = {
     feedback?: Feedback;
 };
 
+type ResumeMatch = {
+    matchPercentage: number;
+    matchingStrengths: string[];
+    missingAreas: string[];
+    suggestions: string[];
+    summary: string;
+};
 class ApiRequestError extends Error {
     constructor(public status: number, message: string) {
         super(message);
@@ -32,11 +83,13 @@ class ApiRequestError extends Error {
 }
 
 const primaryButton =
-    "rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60";
+    "border-2 border-black bg-black px-4 py-2 font-mono font-bold uppercase tracking-wider text-white transition hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-40";
 
 const secondaryButton =
-    "rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60";
+    "border-2 border-black bg-white px-4 py-2 font-mono font-bold uppercase tracking-wider text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40";
 
+const inputClass =
+    "w-full border-2 border-black bg-white px-3 py-2.5 font-mono text-black outline-none placeholder:text-neutral-400 focus:bg-neutral-100";
 function formatDuration(totalSeconds: number) {
     const minutes = Math.floor(totalSeconds / 60)
         .toString()
@@ -60,6 +113,8 @@ async function getApiError(response: Response) {
     return new ApiRequestError(response.status, message);
 }
 
+
+
 function errorMessage(error: unknown, fallback: string) {
     return error instanceof ApiRequestError && error.status === 429
         ? error.message
@@ -80,7 +135,7 @@ function StarScore({ label, score }: { label: string; score: number }) {
                 className="mt-1 text-amber-500"
                 aria-label={`${label}: ${score} out of 10`}
             >
-                {"★".repeat(score)}
+                {"*".repeat(score)}
                 <span className="text-slate-300">
                     {"★".repeat(10 - score)}
                 </span>
@@ -91,9 +146,20 @@ function StarScore({ label, score }: { label: string; score: number }) {
 
 export default function SetupForm() {
     const sessionEndedRef = useRef(false);
+    const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+    const voiceBaseAnswerRef = useRef("");
 
     const [role, setRole] = useState("");
     const [company, setCompany] = useState("");
+    const [jobDescription, setJobDescription] = useState("");
+    const [requiredSkills, setRequiredSkills] = useState("");
+    const [resumeFile, setResumeFile] = useState<File | null>(null);
+    const [resumeText, setResumeText] = useState("");
+    const [isParsingResume, setIsParsingResume] = useState(false);
+    const [resumeError, setResumeError] = useState("");
+    const [resumeMatch, setResumeMatch] = useState<ResumeMatch | null>(null);
+    const [isAnalyzingMatch, setIsAnalyzingMatch] = useState(false);
+    const [matchError, setMatchError] = useState("");
     const [interviewType, setInterviewType] = useState("Technical");
     const [experienceLevel, setExperienceLevel] = useState("Fresher");
     const [questionCount, setQuestionCount] = useState("5");
@@ -121,6 +187,7 @@ export default function SetupForm() {
 
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const [isListening, setIsListening] = useState(false);
 
     useEffect(() => {
         if (!isTimerRunning) return;
@@ -132,6 +199,124 @@ export default function SetupForm() {
         return () => window.clearInterval(intervalId);
     }, [isTimerRunning]);
 
+
+    useEffect(() => {
+        return () => {
+            recognitionRef.current?.stop();
+        };
+    }, []);
+
+    async function analyzeResumeMatch() {
+        if (!resumeText.trim()) {
+            setMatchError("Please upload and analyze a resume first.");
+            return;
+        }
+
+        if (!role.trim()) {
+            setMatchError("Please enter the target job role first.");
+            return;
+        }
+
+        setIsAnalyzingMatch(true);
+        setMatchError("");
+        setResumeMatch(null);
+
+        try {
+            const response = await fetch("/api/resume-match", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    role,
+                    jobDescription,
+                    requiredSkills,
+                    resumeText,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "Unable to analyze resume match."
+                );
+            }
+
+            setResumeMatch(data as ResumeMatch);
+        } catch (error) {
+            setMatchError(
+                error instanceof Error
+                    ? error.message
+                    : "Unable to analyze resume match."
+            );
+        } finally {
+            setIsAnalyzingMatch(false);
+        }
+    }
+
+    function startListening() {
+        const SpeechRecognition =
+            (window as SpeechRecognitionWindow).SpeechRecognition ||
+            (window as SpeechRecognitionWindow).webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            setError("Voice input is not supported in this browser. Please use Google Chrome or type your answer.");
+            return;
+        }
+
+        if (isListening) return;
+
+        setError("");
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+        voiceBaseAnswerRef.current = answer.trim();
+
+        recognition.onresult = (event: SpeechRecognitionEventLike) => {
+            let transcript = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+
+            const base = voiceBaseAnswerRef.current;
+            setAnswer(`${base}${base && transcript.trim() ? " " : ""}${transcript}`.trim());
+        };
+
+        recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+            if (event.error !== "no-speech" && event.error !== "aborted") {
+                setError("Voice input stopped unexpectedly. Please try again.");
+            }
+            recognitionRef.current = null;
+            setIsListening(false);
+        };
+
+        recognition.onend = () => {
+            recognitionRef.current = null;
+            setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+        setIsListening(true);
+
+        try {
+            recognition.start();
+        } catch {
+            setError("Unable to start voice input. Please try again.");
+            recognitionRef.current = null;
+            setIsListening(false);
+        }
+    }
+
+    function stopListening() {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            recognitionRef.current = null;
+        }
+        setIsListening(false);
+    }
+
     async function generateQuestion(questionHistory: string[]) {
         const response = await fetch("/api/interview-question", {
             method: "POST",
@@ -141,6 +326,9 @@ export default function SetupForm() {
             body: JSON.stringify({
                 role,
                 company,
+                jobDescription,
+                requiredSkills,
+                resumeText,
                 interviewType,
                 experienceLevel,
                 previousQuestions: questionHistory,
@@ -155,12 +343,19 @@ export default function SetupForm() {
     }
 
     function clearCurrentQuestionState() {
+        stopListening();
+        voiceBaseAnswerRef.current = "";
         setAnswer("");
         setFeedback(null);
         setAnswerSubmitted(false);
     }
 
     async function startInterview() {
+        if (!role.trim()) {
+            setError("Please enter the role you are interviewing for.");
+            return;
+        }
+
         setIsLoading(true);
         setError("");
         sessionEndedRef.current = false;
@@ -228,7 +423,8 @@ export default function SetupForm() {
     }
 
     async function submitAnswer() {
-        if (!currentQuestion) return;
+        if (!currentQuestion || !answer.trim()) return;
+        stopListening();
 
         setIsEvaluating(true);
         setError("");
@@ -241,9 +437,13 @@ export default function SetupForm() {
                 },
                 body: JSON.stringify({
                     role,
+                    company,
+                    jobDescription,
+                    requiredSkills,
                     interviewType,
                     experienceLevel,
                     question: currentQuestion.question,
+                    category: currentQuestion.category,
                     answer,
                 }),
             });
@@ -286,6 +486,7 @@ export default function SetupForm() {
 
     async function skipQuestion() {
         if (!currentQuestion || isLoading || isEvaluating) return;
+        stopListening();
 
         const skippedResult: QuestionResult = {
             number: currentQuestionNumber,
@@ -307,6 +508,7 @@ export default function SetupForm() {
     }
 
     function endInterview() {
+        stopListening();
         sessionEndedRef.current = true;
         setIsTimerRunning(false);
 
@@ -325,11 +527,13 @@ export default function SetupForm() {
     }
 
     function finishInterview() {
+        stopListening();
         setIsTimerRunning(false);
         setInterviewCompleted(true);
     }
 
     function resetSession() {
+        stopListening();
         sessionEndedRef.current = false;
         setIsTimerRunning(false);
         setElapsedSeconds(0);
@@ -365,14 +569,6 @@ export default function SetupForm() {
         ) / answeredResults.length
         : null;
 
-    const averageFormula = answeredResults.length
-        ? `(${answeredResults
-            .map((result) => result.feedback!.overall)
-            .join(" + ")}) / ${answeredResults.length} = ${averageScore!.toFixed(
-                1
-            )}`
-        : "No answered questions were available for calculation.";
-
     const verdict =
         averageScore === null || averageScore < 5
             ? "Needs Work"
@@ -382,6 +578,25 @@ export default function SetupForm() {
                     ? "Good"
                     : "Strong";
 
+    const overallSummary = (() => {
+        if (answeredResults.length === 0) {
+            return "No answers were evaluated, so there is not enough information to summarize your performance.";
+        }
+
+        if (averageScore !== null && averageScore >= 8) {
+            return "Strong overall performance. Your answers were consistently relevant and well-developed, with only minor areas to improve.";
+        }
+
+        if (averageScore !== null && averageScore >= 6) {
+            return "A solid performance overall. You demonstrated good understanding, but improving clarity and depth would make your answers stronger.";
+        }
+
+        if (averageScore !== null && averageScore >= 4) {
+            return "A developing performance. You showed some relevant knowledge, but your answers would benefit from clearer structure and more depth.";
+        }
+
+        return "This interview highlighted several areas for improvement. Focus on building clearer, more complete answers and strengthening your understanding of key topics.";
+    })();
     const progress = totalQuestions
         ? (currentQuestionNumber / totalQuestions) * 100
         : 0;
@@ -411,102 +626,342 @@ export default function SetupForm() {
 
     if (!interviewStarted) {
         return (
-            <div className="space-y-5">
-                <h2 className="text-2xl font-bold text-slate-900">
-                    Set Up Your Interview
-                </h2>
+            <section className="mx-auto w-full max-w-2xl">
+                <div className="space-y-6 border-2 border-black bg-white p-5 sm:p-8">
+                    <div className="border-b-2 border-black pb-4">
+                        <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-black">
+                            AI INTERVIEW SIMULATOR
+                        </p>
 
-                <input
-                    type="text"
-                    placeholder="Enter your job role"
-                    value={role}
-                    onChange={(event) => setRole(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black"
-                />
+                        <h2 className="mt-2 font-mono text-2xl font-bold uppercase tracking-tight text-black">
+                            Set Up Interview
+                        </h2>
 
-                <input
-                    type="text"
-                    placeholder="Enter company name (optional)"
-                    value={company}
-                    onChange={(event) => setCompany(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black"
-                />
+                        <p className="mt-2 text-sm text-neutral-600">
+                            Add your interview details. Questions will adapt to
+                            your role, skills, resume, and experience.
+                        </p>
+                    </div>
 
-                <div>
-                    <label className="font-medium text-slate-700">
-                        Interview Type
-                    </label>
+                    <div>
+                        <label className="mb-1 block font-mono text-xs font-bold uppercase tracking-wider text-black">
+                            Role you are interviewing for
+                        </label>
 
-                    <br />
+                        <input
+                            type="text"
+                            placeholder="e.g. Software Developer"
+                            value={role}
+                            onChange={(event) => setRole(event.target.value)}
+                            className={inputClass}
+                        />
+                    </div>
 
-                    <select
-                        value={interviewType}
-                        onChange={(event) =>
-                            setInterviewType(event.target.value)
-                        }
-                        className="mt-1 rounded border border-slate-300 p-2"
+                    <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">
+                            Current company or target company
+                            <span className="ml-1 text-slate-400">
+                                (optional)
+                            </span>
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Company name"
+                            value={company}
+                            onChange={(event) =>
+                                setCompany(event.target.value)
+                            }
+                            className={inputClass}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">
+                            Job Description
+                            <span className="ml-1 font-normal normal-case text-neutral-500">
+                                (optional)
+                            </span>
+                        </label>
+                        <textarea
+                            placeholder="Paste the job description here..."
+                            value={jobDescription}
+                            onChange={(event) =>
+                                setJobDescription(event.target.value)
+                            }
+                            rows={4}
+                            className={inputClass}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">
+                            Required Skills
+                            <span className="ml-1 text-slate-400">
+                                (optional)
+                            </span>
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="e.g. React, TypeScript, SQL, Node.js"
+                            value={requiredSkills}
+                            onChange={(event) =>
+                                setRequiredSkills(event.target.value)
+                            }
+                            className={inputClass}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">
+                            Resume
+                            <span className="ml-1 text-slate-400">
+                                PDF only
+                            </span>
+                        </label>
+
+                        <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={async (event) => {
+                                const file = event.target.files?.[0] || null;
+
+                                setResumeFile(file);
+                                setResumeText("");
+                                setResumeError("");
+
+                                if (!file) return;
+
+                                setIsParsingResume(true);
+
+                                try {
+                                    const formData = new FormData();
+                                    formData.append("resume", file);
+
+                                    const response = await fetch("/api/resume-parse", {
+                                        method: "POST",
+                                        body: formData,
+                                    });
+
+                                    const data = await response.json();
+
+                                    if (!response.ok) {
+                                        throw new Error(data.error || "Unable to analyze resume.");
+                                    }
+
+                                    setResumeText(data.text);
+                                } catch (error) {
+                                    setResumeError(
+                                        error instanceof Error
+                                            ? error.message
+                                            : "Unable to analyze resume."
+                                    );
+                                } finally {
+                                    setIsParsingResume(false);
+                                }
+                            }}
+
+                        />
+                        {isParsingResume && (
+                            <p className="mt-2 text-sm">
+                                Analyzing resume...
+                            </p>
+                        )}
+
+                        {resumeText && (
+                            <p className="mt-2 text-sm">
+                                Resume analyzed successfully.
+                            </p>
+                        )}
+
+                        {resumeError && (
+                            <p className="mt-2 text-sm font-medium">
+                                {resumeError}
+                            </p>
+                        )}
+                        {resumeFile && (
+                            <p className="mt-2 font-mono text-sm text-neutral-700">
+                                Selected:{" "}
+                                <span className="font-bold text-black">
+                                    {resumeFile.name}
+                                </span>
+                            </p>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={analyzeResumeMatch}
+                            disabled={
+                                isParsingResume ||
+                                isAnalyzingMatch ||
+                                !resumeText.trim() ||
+                                !role.trim()
+                            }
+                            className="mt-3 border-2 border-black bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            {isAnalyzingMatch
+                                ? "Analyzing Resume..."
+                                : "Analyze Resume Match"}
+                        </button>
+
+                        {matchError && (
+                            <p className="mt-2 border-2 border-black bg-white px-3 py-2 font-mono text-xs font-bold text-black">
+                                {matchError}
+                            </p>
+                        )}
+
+                        {resumeMatch && (
+                            <div className="mt-4 border-2 border-black bg-white p-4">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p className="font-mono text-xs font-bold uppercase tracking-wider text-black">
+                                            Resume Match
+                                        </p>
+                                        <p className="font-mono text-3xl font-bold text-black">
+                                            {resumeMatch.matchPercentage}%
+                                        </p>
+                                    </div>
+
+                                    <span className="border border-black px-3 py-1 font-mono text-xs font-bold uppercase text-black">
+                                        {role}
+                                    </span>
+                                </div>
+
+                                <p className="mt-4 text-sm text-black">
+                                    {resumeMatch.summary}
+                                </p>
+
+                                <div className="mt-5 grid gap-5 md:grid-cols-3">
+                                    <div>
+                                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-black">
+                                            Matching Strengths
+                                        </h3>
+
+                                        <ul className="mt-2 space-y-2 text-sm text-black">
+                                            {resumeMatch.matchingStrengths.map(
+                                                (strength, index) => (
+                                                    <li key={index}>• {strength}</li>
+                                                )
+                                            )}
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-black">
+                                            Missing Areas
+                                        </h3>
+
+                                        <ul className="mt-2 space-y-2 text-sm text-black">
+                                            {resumeMatch.missingAreas.map(
+                                                (area, index) => (
+                                                    <li key={index}>• {area}</li>
+                                                )
+                                            )}
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-black">
+                                            Suggestions
+                                        </h3>
+
+                                        <ul className="mt-2 space-y-2 text-sm text-black">
+                                            {resumeMatch.suggestions.map(
+                                                (suggestion, index) => (
+                                                    <li key={index}>• {suggestion}</li>
+                                                )
+                                            )}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <p className="mt-1 text-xs text-slate-400">
+                            Your resume is parsed and used to tailor questions and analyze role fit.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
+                                Interview Type
+                            </label>
+
+                            <select
+                                value={interviewType}
+                                onChange={(event) =>
+                                    setInterviewType(event.target.value)
+                                }
+                                className={inputClass}
+                            >
+                                <option value="Technical">Technical</option>
+                                <option value="Behavioral">Behavioral</option>
+                                <option value="System Design">
+                                    System Design
+                                </option>
+                                <option value="Mixed">Mixed</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
+                                Experience Level
+                            </label>
+
+                            <select
+                                value={experienceLevel}
+                                onChange={(event) =>
+                                    setExperienceLevel(event.target.value)
+                                }
+                                className={inputClass}
+                            >
+                                <option value="Fresher">Fresher</option>
+                                <option value="Junior">Junior</option>
+                                <option value="Mid-Level">Mid-Level</option>
+                                <option value="Senior">Senior</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-slate-700">
+                                Number of Questions
+                            </label>
+                            <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+                                {questionCount}
+                            </span>
+                        </div>
+
+                        <input
+                            type="range"
+                            min="3"
+                            max="10"
+                            value={questionCount}
+                            onChange={(event) =>
+                                setQuestionCount(event.target.value)
+                            }
+                            className="mt-3 w-full accent-blue-600"
+                        />
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={startInterview}
+                        disabled={isLoading}
+                        className={`${primaryButton} w-full`}
                     >
-                        <option value="Technical">Technical</option>
-                        <option value="Behavioral">Behavioral</option>
-                        <option value="System Design">System Design</option>
-                        <option value="Mixed">Mixed</option>
-                    </select>
+                        {isLoading
+                            ? "Generating interview..."
+                            : "Start Interview"}
+                    </button>
+
+                    {error && (
+                        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                            {error}
+                        </p>
+                    )}
                 </div>
-
-                <div>
-                    <label className="font-medium text-slate-700">
-                        Experience Level
-                    </label>
-
-                    <br />
-
-                    <select
-                        value={experienceLevel}
-                        onChange={(event) =>
-                            setExperienceLevel(event.target.value)
-                        }
-                        className="mt-1 rounded border border-slate-300 p-2"
-                    >
-                        <option value="Fresher">Fresher</option>
-                        <option value="Junior">Junior</option>
-                        <option value="Mid-Level">Mid-Level</option>
-                        <option value="Senior">Senior</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label className="font-medium text-slate-700">
-                        Number of Questions
-                    </label>
-
-                    <br />
-
-                    <input
-                        type="range"
-                        min="3"
-                        max="10"
-                        value={questionCount}
-                        onChange={(event) =>
-                            setQuestionCount(event.target.value)
-                        }
-                    />
-
-                    <p>Number of Questions: {questionCount}</p>
-                </div>
-
-                <button
-                    type="button"
-                    onClick={startInterview}
-                    disabled={isLoading}
-                    className={primaryButton}
-                >
-                    {isLoading
-                        ? "GENERATING QUESTION..."
-                        : "START INTERVIEW"}
-                </button>
-
-                {error && <p className="text-red-600">{error}</p>}
-            </div>
+            </section >
         );
     }
 
@@ -521,28 +976,8 @@ export default function SetupForm() {
                     <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <div className="rounded-lg bg-blue-50 p-4">
                             <p className="text-sm text-slate-600">
-                                Average Score{" "}
-                                <span className="group relative inline-block">
-                                    <button
-                                        type="button"
-                                        className="rounded-full border border-slate-400 px-1 text-xs"
-                                        aria-describedby="average-score-tooltip"
-                                    >
-                                        i
-                                    </button>
-
-                                    <span
-                                        id="average-score-tooltip"
-                                        role="tooltip"
-                                        className="invisible absolute bottom-full left-1/2 z-10 mb-2 w-64 -translate-x-1/2 rounded bg-slate-900 p-2 text-xs text-white opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
-                                    >
-                                        Calculated using the overall scores
-                                        from answered questions only.{" "}
-                                        {averageFormula}
-                                    </span>
-                                </span>
+                                Average Score
                             </p>
-
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {averageScore === null
                                     ? "N/A"
@@ -560,7 +995,9 @@ export default function SetupForm() {
                         </div>
 
                         <div className="rounded-lg bg-amber-50 p-4">
-                            <p className="text-sm text-slate-600">Skipped</p>
+                            <p className="text-sm text-slate-600">
+                                Skipped
+                            </p>
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {skippedCount}
                             </p>
@@ -579,6 +1016,15 @@ export default function SetupForm() {
                     <p className="mt-5 text-lg font-semibold text-slate-900">
                         Verdict: {verdict}
                     </p>
+                    <div className="mt-3 border border-slate-300 bg-slate-50 p-4">
+                        <p className="font-mono text-xs font-bold uppercase tracking-wider text-slate-600">
+                            Overall Performance
+                        </p>
+
+                        <p className="mt-2 text-sm leading-relaxed text-slate-800">
+                            {overallSummary}
+                        </p>
+                    </div>
 
                     {averageScore === null && (
                         <p className="mt-1 text-slate-600">
@@ -626,7 +1072,9 @@ export default function SetupForm() {
                                         result.feedback ? (
                                         <div className="mt-3 space-y-1 text-sm text-slate-700">
                                             <p>
-                                                <strong>Overall score:</strong>{" "}
+                                                <strong>
+                                                    Overall score:
+                                                </strong>{" "}
                                                 {result.feedback.overall}/10
                                             </p>
 
@@ -719,30 +1167,73 @@ export default function SetupForm() {
 
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
                     <div
-                        className="h-full rounded-full bg-blue-600"
+                        className="h-full rounded-full bg-blue-600 transition-all duration-300"
                         style={{ width: `${progress}%` }}
                     />
                 </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">
-                    {currentQuestion.category}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                    <span className="border border-current px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                        {currentQuestion.category}
+                    </span>
 
-                <h2 className="mt-4 text-xl font-bold text-slate-900">
+                    <span
+                        className={`border px-3 py-1 text-xs font-bold uppercase tracking-wider ${currentQuestion.difficulty === "Easy"
+                            ? "border-green-500 text-green-500"
+                            : currentQuestion.difficulty === "Medium"
+                                ? "border-white text-white"
+                                : "border-red-500 text-red-500"
+                            }`}
+                    >
+                        Difficulty: {currentQuestion.difficulty}
+                    </span>
+
+                    <span
+                        className={`border px-3 py-1 text-xs font-bold uppercase tracking-wider ${currentQuestion.likelihood === "Most Likely"
+                            ? "border-green-400 text-green-400"
+                            : currentQuestion.likelihood === "Likely"
+                                ? "border-white text-white"
+                                : "border-slate-500 text-slate-400"
+                            }`}
+                    >
+                        {currentQuestion.likelihood}
+                    </span>
+                </div>
+
+                <h2 className="mt-6 text-xl font-bold leading-relaxed">
                     {currentQuestion.question}
                 </h2>
             </div>
 
             {!answerSubmitted ? (
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <label className="font-semibold text-slate-800">Your Answer</label>
+                        {!isListening ? (
+                            <button type="button" onClick={startListening} disabled={isEvaluating} className="rounded-lg bg-red-500 px-4 py-2 font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60">
+                                Start Speaking
+                            </button>
+                        ) : (
+                            <button type="button" onClick={stopListening} className="rounded-lg bg-slate-800 px-4 py-2 font-semibold text-white transition hover:bg-slate-900">
+                                Stop Listening
+                            </button>
+                        )}
+                    </div>
+
+                    {isListening && (
+                        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            Listening... Speak your answer clearly.
+                        </div>
+                    )}
+
                     <textarea
-                        placeholder="Type your answer here..."
+                        placeholder="Type your answer here or use voice input..."
                         rows={10}
                         value={answer}
                         onChange={(event) => setAnswer(event.target.value)}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black"
+                        className={inputClass}
                     />
 
                     <p className="mt-2 text-sm text-slate-600">
@@ -760,7 +1251,7 @@ export default function SetupForm() {
                             className={primaryButton}
                         >
                             {isEvaluating
-                                ? "EVALUATING ANSWER..."
+                                ? "Evaluating answer..."
                                 : "Submit Answer"}
                         </button>
 
@@ -804,9 +1295,9 @@ export default function SetupForm() {
                             className="text-2xl text-blue-600"
                             aria-label={`Overall score: ${feedback.overall} out of 10`}
                         >
-                            {"◆".repeat(feedback.overall)}
+                            {"*".repeat(feedback.overall)}
                             <span className="text-slate-300">
-                                {"◇".repeat(10 - feedback.overall)}
+                                {".".repeat(10 - feedback.overall)}
                             </span>
                         </p>
                     </div>
@@ -847,16 +1338,6 @@ export default function SetupForm() {
                         </div>
                     </div>
 
-                    <div className="rounded-lg border border-blue-200 bg-white p-4">
-                        <h3 className="font-bold text-blue-800">
-                            Better Answer Hint
-                        </h3>
-
-                        <p className="mt-2 text-slate-700">
-                            {feedback.model_answer_hint}
-                        </p>
-                    </div>
-
                     {currentQuestionNumber === totalQuestions ? (
                         <button
                             type="button"
@@ -873,14 +1354,18 @@ export default function SetupForm() {
                             className={primaryButton}
                         >
                             {isLoading
-                                ? "GENERATING QUESTION..."
+                                ? "Generating question..."
                                 : "Next Question"}
                         </button>
                     )}
                 </div>
             ) : null}
 
-            {error && <p className="text-red-600">{error}</p>}
+            {error && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700">
+                    {error}
+                </p>
+            )}
         </section>
     );
 }
