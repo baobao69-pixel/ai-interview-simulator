@@ -3,1045 +3,866 @@
 @tailwind utilities;
 
 /* =========================================================
-   AI INTERVIEW SIMULATOR
-   Chrome Dino Game × Modern Interview Dashboard
-   ========================================================= */
+   INTERVIEW QUEST
+   BLACK / WHITE SPACE TERMINAL SYSTEM
+========================================================= */
 
 :root {
-  --background: #f5f1e6;
-  --foreground: #1f2937;
+  --background: #f4f4f1;
+  --foreground: #111111;
 
-  --pixel-dark: #1f2937;
-  --pixel-border: #374151;
-  --pixel-shadow: #1f2937;
+  --surface: #ffffff;
+  --surface-soft: #ecece8;
 
-  --game-green: #4f772d;
-  --game-green-dark: #31572c;
+  --border: #1d1d1d;
+  --border-soft: #a6a6a0;
 
-  --game-blue: #2563eb;
-  --game-red: #dc2626;
-  --game-yellow: #d97706;
+  --muted: #666666;
 
-  --paper: #fffdf7;
+  --accent: #6fe3ae;
+  --accent-soft: #dff8eb;
 }
 
 .dark {
-  --background: #10151d;
-  --foreground: #e5e7eb;
+  --background: #050505;
+  --foreground: #f5f5f5;
 
-  --pixel-dark: #e5e7eb;
-  --pixel-border: #64748b;
-  --pixel-shadow: #020617;
+  --surface: #0d0d0d;
+  --surface-soft: #151515;
 
-  --paper: #18202b;
+  --border: #e6e6e6;
+  --border-soft: #4a4a4a;
+
+  --muted: #b5b5b5;
+
+  --accent: #8df0bc;
+  --accent-soft: #10251a;
 }
 
 /* =========================================================
-   GLOBAL
-   ========================================================= */
+   RESET
+========================================================= */
 
-html {
-  scroll-behavior: smooth;
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
 }
 
 body {
+  background: var(--background);
   color: var(--foreground);
-  background-color: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  min-height: 100vh;
 
-  /* Subtle retro grid texture */
-  background-image:
-    linear-gradient(rgba(31, 41, 55, 0.035) 1px,
-      transparent 1px),
-    linear-gradient(90deg,
-      rgba(31, 41, 55, 0.035) 1px,
-      transparent 1px);
-  background-size: 24px 24px;
-}
+  /*
+       Uses the same family style you see in terminals /
+       VS Code rather than the decorative typewriter font.
+    */
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
 
-.dark body {
-  background-image:
-    linear-gradient(rgba(148, 163, 184, 0.035) 1px,
-      transparent 1px),
-    linear-gradient(90deg,
-      rgba(148, 163, 184, 0.035) 1px,
-      transparent 1px);
-}
-
-/* =========================================================
-   PIXEL GAME CARDS
-   Applies retro styling to existing rounded cards
-   ========================================================= */
-
-.bg-white {
-  border: 2px solid var(--pixel-border);
-  border-radius: 6px !important;
-  box-shadow: 5px 5px 0 var(--pixel-shadow);
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-/* Don't make tiny nested elements look like giant cards */
-.bg-white:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 6px 6px 0 var(--pixel-shadow);
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }
-
-/* Softer panels */
-.bg-slate-50,
-.bg-slate-100 {
-  border: 1px solid var(--pixel-border);
-  border-radius: 4px !important;
-}
-
-/* =========================================================
-   BUTTONS
-   Arcade / Dino-game controls
-   ========================================================= */
 
 button {
-  border-radius: 4px !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.025em;
-  border: 2px solid rgba(0, 0, 0, 0.28);
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.32);
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.12s ease,
-    filter 0.12s ease;
-}
-
-button:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.35);
-  filter: brightness(1.05);
-}
-
-button:active:not(:disabled) {
-  transform: translate(3px, 3px);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35);
+  cursor: pointer;
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
-  box-shadow: none;
+}
+
+::selection {
+  background: var(--accent);
+  color: #000000;
 }
 
 /* =========================================================
-   INPUTS / TEXTAREA / SELECT
-   ========================================================= */
+   MAIN SPACE WORLD
+========================================================= */
 
-input,
-textarea,
-select {
-  border: 2px solid var(--pixel-border) !important;
-  border-radius: 4px !important;
-  background-color: var(--paper);
-  color: var(--foreground);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none !important;
-  border-color: var(--game-blue) !important;
-  box-shadow: 3px 3px 0 rgba(37, 99, 235, 0.22);
-}
-
-/* =========================================================
-   RANGE SLIDER
-   ========================================================= */
-
-input[type="range"] {
-  appearance: none;
-  -webkit-appearance: none;
-  height: 10px;
-  padding: 0;
-  background: #cbd5e1;
-  border: 2px solid var(--pixel-border) !important;
-  box-shadow: none;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 2px;
-  background: var(--game-green);
-  border: 2px solid #1f2937;
-  box-shadow: 2px 2px 0 #1f2937;
-  cursor: pointer;
-}
-
-input[type="range"]::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 2px;
-  background: var(--game-green);
-  border: 2px solid #1f2937;
-  box-shadow: 2px 2px 0 #1f2937;
-  cursor: pointer;
-}
-
-/* =========================================================
-   PROGRESS BARS
-   Makes existing progress bars feel more game-like
-   ========================================================= */
-
-.rounded-full {
-  border-radius: 3px !important;
-}
-
-.bg-blue-600,
-.bg-blue-500 {
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
-}
-
-.bg-emerald-500,
-.bg-emerald-600 {
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
-}
-
-/* =========================================================
-   QUESTION / CATEGORY BADGES
-   ========================================================= */
-
-.bg-blue-50,
-.bg-blue-100 {
-  border: 1px solid #60a5fa;
-}
-
-.bg-emerald-50,
-.bg-emerald-100 {
-  border: 1px solid #34d399;
-}
-
-.bg-amber-50,
-.bg-amber-100 {
-  border: 1px solid #fbbf24;
-}
-
-/* =========================================================
-   SCORE / FEEDBACK POLISH
-   ========================================================= */
-
-.text-amber-500 {
-  text-shadow: 1px 1px 0 rgba(120, 53, 15, 0.15);
-}
-
-.bg-amber-50 {
-  box-shadow: 3px 3px 0 rgba(146, 64, 14, 0.16);
-}
-
-.bg-emerald-50 {
-  box-shadow: 3px 3px 0 rgba(6, 78, 59, 0.14);
-}
-
-/* =========================================================
-   DARK MODE OVERRIDES
-   Preserves your existing theme behaviour
-   ========================================================= */
-
-.dark .bg-white {
-  background-color: #18202b;
-  border-color: #64748b;
-}
-
-.dark .bg-slate-50,
-.dark .bg-slate-100 {
-  background-color: #202a36;
-  border-color: #475569;
-}
-
-.dark .bg-blue-50,
-.dark .bg-blue-50\/40 {
-  background-color: #172554;
-}
-
-.dark .bg-amber-50 {
-  background-color: #422006;
-}
-
-.dark input,
-.dark textarea,
-.dark select {
-  background-color: #111827;
-  color: #e5e7eb;
-  border-color: #64748b !important;
-}
-
-.dark .text-black,
-.dark .text-slate-900,
-.dark .text-slate-800,
-.dark .text-slate-700,
-.dark .text-slate-600,
-.dark .text-slate-500 {
-  color: #e2e8f0;
-}
-
-.dark .text-blue-800 {
-  color: #bfdbfe;
-}
-
-.dark .text-emerald-800 {
-  color: #a7f3d0;
-}
-
-.dark .text-amber-800,
-.dark .text-amber-700 {
-  color: #fde68a;
-}
-
-.dark .border-slate-200,
-.dark .border-slate-300,
-.dark .border-slate-400 {
-  border-color: #475569;
-}
-
-.dark .border-blue-200 {
-  border-color: #2563eb;
-}
-
-.dark .border-emerald-200 {
-  border-color: #047857;
-}
-
-.dark .border-amber-200 {
-  border-color: #b45309;
-}
-
-.dark .bg-blue-100 {
-  background-color: #1e3a8a;
-}
-
-.dark .bg-emerald-100 {
-  background-color: #064e3b;
-}
-
-.dark .bg-amber-100 {
-  background-color: #78350f;
-}
-
-.dark .text-slate-300 {
-  color: #94a3b8;
-}
-
-/* =========================================================
-   LITTLE RETRO ANIMATIONS
-   ========================================================= */
-
-@keyframes pixelPop {
-  0% {
-    transform: translateY(2px);
-    opacity: 0;
-  }
-
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.bg-white,
-.bg-slate-50,
-.bg-slate-100 {
-  animation: pixelPop 0.25s ease-out;
-}
-
-/* =========================================================
-   UTILITIES
-   ========================================================= */
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-/* =========================================================
-   SMALL SCREEN POLISH
-   ========================================================= */
-
-@media (max-width: 640px) {
-  .bg-white {
-    box-shadow: 3px 3px 0 var(--pixel-shadow);
-  }
-
-  button {
-    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.32);
-  }
-
-  button:active:not(:disabled) {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.32);
-  }
-}
-
-/* =========================================================
-   PIXEL DESERT WORLD
-   ========================================================= */
-
-.dino-world {
-  isolation: isolate;
+.quest-world {
+  position: relative;
   min-height: 100vh;
+  overflow: hidden;
+
   background:
-    linear-gradient(to bottom,
-      #f8e8bd 0%,
-      #f9e8bf 48%,
-      #e9a45d 78%,
-      #c86b2c 100%);
+    radial-gradient(circle at 50% 30%,
+      rgba(255, 255, 255, 0.025),
+      transparent 35%),
+    #f4f4f1;
+
+  color: #111111;
 }
 
-.dark .dino-world {
+.dark .quest-world {
   background:
-    linear-gradient(to bottom,
-      #070b1c 0%,
-      #0b1028 52%,
-      #251842 78%,
-      #43205a 100%);
-}
+    radial-gradient(circle at 50% 30%,
+      rgba(111, 227, 174, 0.04),
+      transparent 35%),
+    #050505;
 
+  color: #f5f5f5;
+}
 
 /* =========================================================
-   SUN
-   ========================================================= */
+   STAR FIELD
+========================================================= */
 
-.pixel-sun {
-  position: fixed;
-  top: 50px;
-  right: 6vw;
-
-  width: 82px;
-  height: 82px;
-
-  background: #f6a61d;
-  border: 5px solid #ffbd35;
-  box-shadow:
-    0 0 0 5px rgba(255, 205, 82, 0.18),
-    0 0 35px rgba(246, 166, 29, 0.4);
-
-  z-index: 1;
-
-  clip-path: polygon(20% 0%,
-      80% 0%,
-      80% 8%,
-      92% 8%,
-      92% 20%,
-      100% 20%,
-      100% 80%,
-      92% 80%,
-      92% 92%,
-      80% 92%,
-      80% 100%,
-      20% 100%,
-      20% 92%,
-      8% 92%,
-      8% 80%,
-      0% 80%,
-      0% 20%,
-      8% 20%,
-      8% 8%,
-      20% 8%);
-}
-
-.dark .pixel-sun {
-  display: none;
-}
-
-
-/* =========================================================
-   MOON
-   ========================================================= */
-
-.pixel-moon {
-  display: none;
-
-  position: fixed;
-  top: 60px;
-  right: 7vw;
-
-  width: 78px;
-  height: 78px;
-
-  background: #f8edcf;
-  box-shadow:
-    0 0 30px rgba(248, 237, 207, 0.32);
-
-  z-index: 1;
-
-  clip-path: polygon(25% 0%,
-      75% 0%,
-      75% 8%,
-      88% 8%,
-      88% 20%,
-      100% 20%,
-      100% 80%,
-      88% 80%,
-      88% 92%,
-      75% 92%,
-      75% 100%,
-      25% 100%,
-      25% 92%,
-      12% 92%,
-      12% 80%,
-      0% 80%,
-      0% 20%,
-      12% 20%,
-      12% 8%,
-      25% 8%);
-}
-
-.dark .pixel-moon {
-  display: block;
-}
-
-.dark .pixel-moon::after {
-  content: "";
-
+.quest-stars {
   position: absolute;
-
-  top: 8px;
-  right: -4px;
-
-  width: 62px;
-  height: 62px;
-
-  background: #0b1028;
-
-  clip-path: polygon(25% 0%,
-      75% 0%,
-      75% 8%,
-      88% 8%,
-      88% 20%,
-      100% 20%,
-      100% 80%,
-      88% 80%,
-      88% 92%,
-      75% 92%,
-      75% 100%,
-      25% 100%,
-      25% 92%,
-      12% 92%,
-      12% 80%,
-      0% 80%,
-      0% 20%,
-      12% 20%,
-      12% 8%,
-      25% 8%);
-}
-
-
-/* =========================================================
-   PIXEL CLOUDS
-   ========================================================= */
-
-.pixel-cloud {
-  position: fixed;
-
-  width: 150px;
-  height: 45px;
-
-  background: rgba(255, 255, 255, 0.5);
-
-  z-index: 1;
-
-  opacity: 0.75;
-
-  clip-path: polygon(0 75%,
-      12% 75%,
-      12% 50%,
-      25% 50%,
-      25% 25%,
-      45% 25%,
-      45% 0,
-      65% 0,
-      65% 25%,
-      80% 25%,
-      80% 50%,
-      92% 50%,
-      92% 75%,
-      100% 75%,
-      100% 100%,
-      0 100%);
-}
-
-.pixel-cloud-one {
-  top: 130px;
-  left: 5vw;
-}
-
-.pixel-cloud-two {
-  top: 220px;
-  right: 8vw;
-  transform: scale(0.75);
-}
-
-.pixel-cloud-three {
-  top: 330px;
-  left: 10vw;
-  transform: scale(0.6);
-}
-
-.dark .pixel-cloud {
-  background: rgba(122, 92, 173, 0.22);
-}
-
-
-/* =========================================================
-   STARS
-   ========================================================= */
-
-.pixel-stars {
-  display: none;
-}
-
-.dark .pixel-stars {
-  display: block;
-
-  position: fixed;
   inset: 0;
-
   pointer-events: none;
-  z-index: 1;
+  overflow: hidden;
 }
 
-.pixel-stars span {
+.quest-stars span {
   position: absolute;
+  width: 3px;
+  height: 3px;
 
-  width: 5px;
-  height: 5px;
+  background: #2a2a2a;
 
-  background: #f7d98d;
-  box-shadow: 0 0 8px rgba(247, 217, 141, 0.6);
+  box-shadow:
+    0 0 6px rgba(0, 0, 0, 0.25);
 }
 
-.pixel-stars span:nth-child(1) {
-  top: 12%;
-  left: 8%;
+.dark .quest-stars span {
+  background: var(--accent);
+
+  box-shadow:
+    0 0 8px rgba(141, 240, 188, 0.55);
 }
 
-.pixel-stars span:nth-child(2) {
-  top: 20%;
-  left: 24%;
-}
+/* Individual star positions */
 
-.pixel-stars span:nth-child(3) {
-  top: 10%;
-  left: 52%;
-}
-
-.pixel-stars span:nth-child(4) {
-  top: 30%;
-  left: 72%;
-}
-
-.pixel-stars span:nth-child(5) {
-  top: 18%;
-  right: 12%;
-}
-
-.pixel-stars span:nth-child(6) {
-  top: 45%;
+.quest-stars span:nth-child(1) {
+  top: 8%;
   left: 12%;
 }
 
-.pixel-stars span:nth-child(7) {
+.quest-stars span:nth-child(2) {
+  top: 13%;
+  left: 35%;
+}
+
+.quest-stars span:nth-child(3) {
+  top: 9%;
+  left: 68%;
+}
+
+.quest-stars span:nth-child(4) {
+  top: 18%;
+  left: 82%;
+}
+
+.quest-stars span:nth-child(5) {
   top: 38%;
-  right: 20%;
+  left: 6%;
 }
 
-.pixel-stars span:nth-child(8) {
-  top: 55%;
-  right: 7%;
+.quest-stars span:nth-child(6) {
+  top: 44%;
+  left: 93%;
 }
 
+.quest-stars span:nth-child(7) {
+  top: 67%;
+  left: 11%;
+}
+
+.quest-stars span:nth-child(8) {
+  top: 74%;
+  left: 88%;
+}
+
+.quest-stars span:nth-child(9) {
+  top: 87%;
+  left: 27%;
+}
+
+.quest-stars span:nth-child(10) {
+  top: 91%;
+  left: 59%;
+}
+
+.quest-stars span:nth-child(11) {
+  top: 56%;
+  left: 78%;
+}
+
+.quest-stars span:nth-child(12) {
+  top: 28%;
+  left: 54%;
+}
 
 /* =========================================================
-   DESERT LANDSCAPE CONTAINER
-   ========================================================= */
+   OUTER HUD CORNERS
+========================================================= */
 
-.desert-landscape {
-  position: fixed;
-
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  height: 300px;
+.hud-corner {
+  position: absolute;
+  width: 38px;
+  height: 38px;
 
   pointer-events: none;
-  overflow: hidden;
 
-  z-index: 2;
-}
-
-
-/* =========================================================
-   MOUNTAINS
-   ========================================================= */
-
-.mountain {
-  position: absolute;
-  bottom: 70px;
-
-  width: 420px;
-  height: 220px;
-
-  background: #d9823b;
-
-  opacity: 0.78;
-
-  clip-path: polygon(0 100%,
-      50% 0,
-      100% 100%);
-}
-
-.mountain-left {
-  left: -120px;
-}
-
-.mountain-center {
-  left: 48%;
-  width: 300px;
-  height: 155px;
-
-  background: #d28a47;
-
-  opacity: 0.55;
-}
-
-.mountain-right {
-  right: -90px;
-
-  background: #c86b2c;
-}
-
-.dark .mountain {
-  background: #49365e;
+  border-color: var(--accent);
   opacity: 0.85;
 }
 
-.dark .mountain-center {
-  background: #65406e;
+.hud-corner-top-left {
+  top: 16px;
+  left: 16px;
+
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.hud-corner-top-right {
+  top: 16px;
+  right: 16px;
+
+  border-top: 2px solid;
+  border-right: 2px solid;
+}
+
+.hud-corner-bottom-left {
+  bottom: 16px;
+  left: 16px;
+
+  border-bottom: 2px solid;
+  border-left: 2px solid;
+}
+
+.hud-corner-bottom-right {
+  right: 16px;
+  bottom: 16px;
+
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+/* =========================================================
+   MAIN SHELL
+========================================================= */
+
+.quest-shell {
+  position: relative;
+  z-index: 1;
+
+  width: min(1720px, calc(100% - 80px));
+  margin: 0 auto;
+
+  padding:
+    58px 0 70px;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.quest-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 40px;
+
+  padding-bottom: 32px;
+}
+
+.quest-brand {
+  min-width: 0;
+}
+
+.terminal-label {
+  margin: 0;
+
+  color: var(--accent);
+
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.quest-title {
+  margin: 22px 0 0;
+
+  color: var(--foreground);
+
+  font-size: clamp(2.8rem, 6vw, 6rem);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.08em;
+
+  text-transform: uppercase;
+}
+
+.quest-subtitle {
+  margin: 24px 0 0;
+
+  color: var(--accent);
+
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.quest-subtitle span {
+  margin: 0 8px;
+}
+
+/* =========================================================
+   HEADER RIGHT
+========================================================= */
+
+.quest-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.terminal-status {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  min-width: 260px;
+
+  padding: 22px 26px;
+
+  border: 1px solid var(--accent);
+
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.dark .terminal-status {
+  background: rgba(13, 13, 13, 0.9);
+}
+
+.signal-bars {
+  display: flex;
+  align-items: end;
+  gap: 5px;
+
+  height: 30px;
+}
+
+.signal-bars span {
+  display: block;
+  width: 5px;
+
+  background: var(--accent);
+}
+
+.signal-bars span:nth-child(1) {
+  height: 10px;
+}
+
+.signal-bars span:nth-child(2) {
+  height: 20px;
+}
+
+.signal-bars span:nth-child(3) {
+  height: 30px;
+}
+
+.terminal-status p {
+  margin: 0;
+
+  color: var(--foreground);
+
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.terminal-status span {
+  display: block;
+
+  margin-top: 8px;
+
+  color: var(--muted);
+
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.terminal-status strong {
+  color: var(--accent);
+}
+
+/* =========================================================
+   THEME TOGGLE
+========================================================= */
+
+.quest-header-right button {
+  border: 1px solid var(--border-soft);
+
+  background: var(--surface);
+  color: var(--foreground);
+
+  min-width: 54px;
+  min-height: 54px;
+
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.quest-header-right button:hover {
+  border-color: var(--accent);
+
+  transform: translateY(-2px);
+}
+
+/* =========================================================
+   SYSTEM DIVIDER
+========================================================= */
+
+.system-divider {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  margin-bottom: 46px;
+}
+
+.system-divider span {
+  flex: 1;
+
+  height: 1px;
+
+  background:
+    repeating-linear-gradient(to right,
+      var(--accent) 0,
+      var(--accent) 4px,
+      transparent 4px,
+      transparent 10px);
+
   opacity: 0.75;
 }
 
-.dark .mountain-right {
-  background: #3d3158;
-}
+.system-divider b {
+  color: var(--accent);
 
+  font-size: 1.2rem;
+  font-weight: 400;
+}
 
 /* =========================================================
-   CACTI
-   ========================================================= */
+   MAIN CONSOLE
+========================================================= */
 
-.land-cactus {
-  position: absolute;
-
-  bottom: 55px;
-
-  filter:
-    drop-shadow(4px 4px 0 rgba(45, 80, 25, 0.25));
-
-  line-height: 1;
-}
-
-.cactus-one {
-  left: 3%;
-  font-size: 100px;
-}
-
-.cactus-two {
-  left: 12%;
-  font-size: 62px;
-}
-
-.cactus-three {
-  right: 12%;
-  font-size: 85px;
-}
-
-.cactus-four {
-  right: 3%;
-  font-size: 120px;
-}
-
-.dark .land-cactus {
-  filter:
-    hue-rotate(30deg) brightness(0.72) drop-shadow(4px 4px 0 rgba(0, 0, 0, 0.35));
-}
-
-
-/* =========================================================
-   ROCKS
-   ========================================================= */
-
-.desert-rock {
-  position: absolute;
-  bottom: 58px;
-
-  background: #9b5127;
-
-  border: 4px solid rgba(102, 55, 25, 0.25);
-
-  clip-path: polygon(0 100%,
-      15% 45%,
-      40% 20%,
-      70% 30%,
-      100% 100%);
-}
-
-.rock-one {
-  left: 24%;
-  width: 65px;
-  height: 38px;
-}
-
-.rock-two {
-  right: 25%;
-  width: 90px;
-  height: 48px;
-}
-
-.dark .desert-rock {
-  background: #6c3d63;
-  border-color: rgba(30, 20, 55, 0.5);
-}
-
-
-/* =========================================================
-   PIXEL DESERT GROUND
-   ========================================================= */
-
-.desert-landscape::after {
-  content: "";
-
-  position: absolute;
-
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  height: 72px;
-
-  background:
-    linear-gradient(to bottom,
-      #efad57 0%,
-      #dc8237 15%,
-      #a94e26 45%,
-      #70331f 100%);
-
-  border-top: 7px solid #f6c06b;
-
-  box-shadow:
-    0 -5px 0 #c86b2c,
-    0 -10px 0 rgba(255, 205, 111, 0.45);
-}
-
-.dark .desert-landscape::after {
-  background:
-    linear-gradient(to bottom,
-      #643b72 0%,
-      #472754 20%,
-      #2a193e 55%,
-      #160d29 100%);
-
-  border-top-color: #8b5da7;
-
-  box-shadow:
-    0 -5px 0 #3e2355,
-    0 -10px 0 rgba(123, 71, 146, 0.45);
-}
-
-
-/* =========================================================
-   HEADER HUD
-   ========================================================= */
-
-.dino-header {
+.quest-console {
   position: relative;
 
-  background: rgba(255, 253, 247, 0.86);
+  min-height: 400px;
 
-  border: 3px solid #2b3138;
+  padding: 46px;
 
-  border-radius: 0 !important;
+  border: 1px solid var(--border-soft);
 
-  padding: 1.5rem 1.75rem;
-
-  box-shadow:
-    6px 6px 0 #2b3138;
-
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.72);
 }
 
-.dark .dino-header {
-  background: rgba(15, 23, 42, 0.88);
-
-  border-color: #71658f;
-
-  box-shadow:
-    6px 6px 0 #080b18;
+.dark .quest-console {
+  background:
+    linear-gradient(135deg,
+      rgba(13, 13, 13, 0.98),
+      rgba(7, 7, 7, 0.98));
 }
 
-.dino-title {
-  margin: 0;
+/* Console corner pieces */
 
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  line-height: 0.95;
+.console-corner {
+  position: absolute;
 
-  font-weight: 900;
+  width: 36px;
+  height: 36px;
 
-  letter-spacing: 0.04em;
+  pointer-events: none;
 
-  color: #20252b;
-
-  text-shadow:
-    2px 2px 0 rgba(217, 151, 6, 0.25);
+  border-color: var(--accent);
 }
 
-.dark .dino-title {
-  color: #f3f4f6;
+.console-corner-tl {
+  top: -1px;
+  left: -1px;
 
-  text-shadow:
-    3px 3px 0 rgba(123, 71, 146, 0.7);
+  border-top: 2px solid;
+  border-left: 2px solid;
 }
 
-.hud-label {
-  margin-bottom: 0.45rem;
+.console-corner-tr {
+  top: -1px;
+  right: -1px;
 
-  font-size: 0.8rem;
-  font-weight: 800;
-
-  letter-spacing: 0.12em;
-
-  color: #59606b;
+  border-top: 2px solid;
+  border-right: 2px solid;
 }
 
-.dark .hud-label {
-  color: #81e6c6;
+.console-corner-bl {
+  bottom: -1px;
+  left: -1px;
+
+  border-bottom: 2px solid;
+  border-left: 2px solid;
 }
 
-.hud-subtitle {
-  margin-top: 0.6rem;
+.console-corner-br {
+  right: -1px;
+  bottom: -1px;
 
-  font-size: 0.85rem;
-  font-weight: 800;
-
-  letter-spacing: 0.08em;
-
-  color: #a64f25;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
 }
-
-.dark .hud-subtitle {
-  color: #e66ac2;
-}
-
-.hud-status {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-
-  padding: 0.65rem 0.9rem;
-
-  border: 2px solid #4d8c38;
-
-  background: rgba(245, 255, 235, 0.8);
-
-  font-size: 0.8rem;
-  font-weight: 900;
-
-  letter-spacing: 0.08em;
-
-  color: #31572c;
-
-  box-shadow: 3px 3px 0 rgba(49, 87, 44, 0.2);
-}
-
-.dark .hud-status {
-  background: rgba(11, 35, 36, 0.8);
-
-  color: #a7f3d0;
-}
-
-.status-dot {
-  width: 9px;
-  height: 9px;
-
-  background: #4f9d3a;
-
-  border-radius: 0;
-
-  box-shadow:
-    0 0 0 2px rgba(79, 157, 58, 0.15);
-}
-
 
 /* =========================================================
-   KEEP CONTENT ABOVE THE LANDSCAPE
-   ========================================================= */
+   BOTTOM HUD
+========================================================= */
 
-.dino-world>.relative.z-10 {
-  padding-bottom: 150px;
+.bottom-hud {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+
+  margin-top: 28px;
 }
 
+.bottom-hud span {
+  width: 36px;
+  height: 3px;
+
+  background: var(--accent);
+
+  opacity: 0.75;
+}
+
+/* =========================================================
+   FORM SYSTEM
+   Makes existing SetupForm automatically match.
+========================================================= */
+
+.quest-console input,
+.quest-console textarea,
+.quest-console select {
+  width: 100%;
+
+  border: 1px solid var(--border-soft) !important;
+  border-radius: 0 !important;
+
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+
+  box-shadow: none !important;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.dark .quest-console input,
+.dark .quest-console textarea,
+.dark .quest-console select {
+  background: #0a0a0a !important;
+  color: #f5f5f5 !important;
+  border-color: #555555 !important;
+}
+
+.quest-console input:focus,
+.quest-console textarea:focus,
+.quest-console select:focus {
+  outline: none;
+
+  border-color: var(--accent) !important;
+
+  box-shadow:
+    0 0 0 1px var(--accent) !important;
+}
+
+.quest-console input::placeholder,
+.quest-console textarea::placeholder {
+  color: var(--muted) !important;
+  opacity: 0.85;
+}
+
+/* =========================================================
+   EXISTING SETUPFORM CARDS
+========================================================= */
+
+.quest-console .bg-white,
+.quest-console .bg-slate-50,
+.quest-console .bg-blue-50,
+.quest-console .bg-blue-50\/40 {
+  background-color: var(--surface) !important;
+}
+
+.dark .quest-console .bg-white,
+.dark .quest-console .bg-slate-50,
+.dark .quest-console .bg-blue-50,
+.dark .quest-console .bg-blue-50\/40 {
+  background-color: #0d0d0d !important;
+}
+
+.quest-console .border-slate-200,
+.quest-console .border-slate-300,
+.quest-console .border-blue-200 {
+  border-color: var(--border-soft) !important;
+}
+
+.dark .quest-console .border-slate-200,
+.dark .quest-console .border-slate-300,
+.dark .quest-console .border-blue-200 {
+  border-color: #444444 !important;
+}
+
+/* =========================================================
+   TEXT FIXES
+   This is especially important for your resume analysis.
+========================================================= */
+
+.quest-console .text-slate-900,
+.quest-console .text-slate-800,
+.quest-console .text-slate-700,
+.quest-console .text-slate-600,
+.quest-console .text-slate-500,
+.quest-console .text-black {
+  color: var(--foreground) !important;
+}
+
+.dark .quest-console .text-slate-900,
+.dark .quest-console .text-slate-800,
+.dark .quest-console .text-slate-700,
+.dark .quest-console .text-slate-600,
+.dark .quest-console .text-slate-500,
+.dark .quest-console .text-black,
+.dark .quest-console p,
+.dark .quest-console li,
+.dark .quest-console h1,
+.dark .quest-console h2,
+.dark .quest-console h3,
+.dark .quest-console h4,
+.dark .quest-console label {
+  color: #f2f2f2 !important;
+}
+
+/* Secondary text */
+
+.dark .quest-console .text-neutral-500,
+.dark .quest-console .text-neutral-700,
+.dark .quest-console .text-slate-400 {
+  color: #bcbcbc !important;
+}
+
+/* =========================================================
+   BUTTON SYSTEM
+========================================================= */
+
+.quest-console button {
+  border-radius: 0 !important;
+
+  font-weight: 800;
+  letter-spacing: 0.02em;
+
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.quest-console button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+/* Kill random bright Tailwind blue in dark mode */
+
+.dark .quest-console .bg-blue-600,
+.dark .quest-console .bg-blue-500,
+.dark .quest-console .hover\:bg-blue-700:hover,
+.dark .quest-console .hover\:bg-blue-600:hover {
+  background-color: #f2f2f2 !important;
+  color: #050505 !important;
+}
+
+/* Progress bars */
+
+.dark .quest-console .bg-blue-600 {
+  background-color: #f2f2f2 !important;
+}
+
+.quest-console .bg-slate-200 {
+  background-color: #353535 !important;
+}
+
+/* =========================================================
+   RESUME MATCH SECTION
+========================================================= */
+
+.dark .quest-console .bg-emerald-100,
+.dark .quest-console .bg-amber-50,
+.dark .quest-console .bg-red-50 {
+  background-color: #151515 !important;
+}
+
+.dark .quest-console .border-emerald-200,
+.dark .quest-console .border-amber-200,
+.dark .quest-console .border-red-200 {
+  border-color: #555555 !important;
+}
+
+.dark .quest-console .text-emerald-800,
+.dark .quest-console .text-amber-800,
+.dark .quest-console .text-red-700,
+.dark .quest-console .text-amber-700 {
+  color: #f2f2f2 !important;
+}
+
+/* Resume analysis headings get the accent */
+
+.dark .quest-console .font-mono.text-xs.font-bold.uppercase {
+  color: var(--accent) !important;
+}
+
+/* =========================================================
+   QUESTION CATEGORY TAGS
+========================================================= */
+
+.quest-console .rounded-full {
+  border-radius: 0 !important;
+}
+
+.dark .quest-console .bg-blue-100 {
+  background-color: #1b1b1b !important;
+}
+
+.dark .quest-console .text-blue-800,
+.dark .quest-console .text-blue-700,
+.dark .quest-console .text-blue-600 {
+  color: var(--accent) !important;
+}
+
+/* =========================================================
+   QUESTION TRACKER
+========================================================= */
+
+.dark .quest-console .bg-emerald-100 {
+  background-color: #1a1a1a !important;
+}
+
+.dark .quest-console .bg-amber-100 {
+  background-color: #1a1a1a !important;
+}
+
+.dark .quest-console .border-emerald-200,
+.dark .quest-console .border-amber-200 {
+  border-color: #555555 !important;
+}
+
+/* =========================================================
+   FILE INPUT
+========================================================= */
+
+input[type="file"] {
+  font-size: 0.8rem;
+}
+
+.dark input[type="file"] {
+  color: #f2f2f2;
+}
+
+/* =========================================================
+   REMOVE OLD STYLE PROBLEMS
+========================================================= */
+
+.rounded-xl,
+.rounded-2xl,
+.rounded-lg {
+  border-radius: 0 !important;
+}
+
+.shadow-sm {
+  box-shadow: none !important;
+}
 
 /* =========================================================
    RESPONSIVE
-   ========================================================= */
+========================================================= */
 
-@media (max-width: 768px) {
-
-  .pixel-sun,
-  .pixel-moon {
-    top: 25px;
-    right: 25px;
-
-    transform: scale(0.7);
+@media (max-width: 900px) {
+  .quest-shell {
+    width: min(100% - 32px, 1720px);
+    padding-top: 34px;
   }
 
-  .pixel-cloud-three {
-    display: none;
+  .quest-header {
+    flex-direction: column;
   }
 
-  .mountain-center {
-    display: none;
+  .quest-header-right {
+    width: 100%;
+    justify-content: space-between;
   }
 
-  .cactus-one {
-    left: -15px;
-    font-size: 70px;
+  .terminal-status {
+    min-width: 0;
+    flex: 1;
   }
 
-  .cactus-two {
-    display: none;
+  .quest-console {
+    padding: 24px;
   }
 
-  .cactus-three {
-    display: none;
+  .quest-title {
+    font-size: clamp(2.8rem, 13vw, 5rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .quest-shell {
+    width: min(100% - 20px, 1720px);
   }
 
-  .cactus-four {
-    right: -15px;
-    font-size: 85px;
+  .quest-header-right {
+    align-items: stretch;
   }
 
-  .dino-header {
-    padding: 1.25rem;
+  .terminal-status {
+    padding: 16px;
   }
 
-  .desert-landscape {
-    height: 220px;
+  .quest-console {
+    padding: 18px;
   }
 
-  .dino-world>.relative.z-10 {
-    padding-bottom: 100px;
+  .terminal-label,
+  .quest-subtitle {
+    font-size: 0.68rem;
+  }
+
+  .hud-corner {
+    width: 24px;
+    height: 24px;
   }
 }

@@ -3,17 +3,13 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Home() {
   return (
-    <main className="dino-world relative min-h-screen overflow-hidden">
-      {/* Decorative sky */}
-      <div className="pixel-sun" aria-hidden="true" />
-      <div className="pixel-moon" aria-hidden="true" />
-
-      <div className="pixel-cloud pixel-cloud-one" aria-hidden="true" />
-      <div className="pixel-cloud pixel-cloud-two" aria-hidden="true" />
-      <div className="pixel-cloud pixel-cloud-three" aria-hidden="true" />
-
-      {/* Decorative night stars */}
-      <div className="pixel-stars" aria-hidden="true">
+    <main className="quest-world">
+      {/* Space background */}
+      <div className="quest-stars" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
         <span />
         <span />
         <span />
@@ -24,50 +20,96 @@ export default function Home() {
         <span />
       </div>
 
-      {/* Desert landscape */}
-      <div className="desert-landscape" aria-hidden="true">
-        <div className="mountain mountain-left" />
-        <div className="mountain mountain-center" />
-        <div className="mountain mountain-right" />
+      {/* Decorative HUD corners */}
+      <div className="hud-corner hud-corner-top-left" aria-hidden="true" />
+      <div className="hud-corner hud-corner-top-right" aria-hidden="true" />
+      <div
+        className="hud-corner hud-corner-bottom-left"
+        aria-hidden="true"
+      />
+      <div
+        className="hud-corner hud-corner-bottom-right"
+        aria-hidden="true"
+      />
 
-        <div className="land-cactus cactus-one">🌵</div>
-        <div className="land-cactus cactus-two">🌵</div>
-        <div className="land-cactus cactus-three">🌵</div>
-        <div className="land-cactus cactus-four">🌵</div>
+      <div className="quest-shell">
+        {/* HEADER */}
+        <header className="quest-header">
+          <div className="quest-brand">
+            <p className="terminal-label">
+              AI INTERVIEW SIMULATOR
+            </p>
 
-        <div className="desert-rock rock-one" />
-        <div className="desert-rock rock-two" />
-      </div>
+            <h1 className="quest-title">
+              INTERVIEW QUEST
+            </h1>
 
-      {/* Main app */}
-      <div className="relative z-10 mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
-        <header className="dino-header mb-8">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="hud-label">AI INTERVIEW SIMULATOR</p>
+            <p className="quest-subtitle">
+              TRAIN <span>•</span> ANSWER <span>•</span> IMPROVE
+            </p>
+          </div>
 
-              <h1 className="dino-title">
-                INTERVIEW QUEST
-              </h1>
-
-              <p className="hud-subtitle">
-                TRAIN • ANSWER • LEVEL UP
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="hud-status">
-                <span className="status-dot" />
-                READY
+          <div className="quest-header-right">
+            <div className="terminal-status">
+              <div className="signal-bars" aria-hidden="true">
+                <span />
+                <span />
+                <span />
               </div>
 
-              <ThemeToggle />
+              <div>
+                <p>TERMINAL_01</p>
+                <span>
+                  STATUS: <strong>READY</strong>
+                </span>
+              </div>
             </div>
+
+            <ThemeToggle />
           </div>
         </header>
 
-        {/* Your existing working app */}
-        <SetupForm />
+        {/* SYSTEM DIVIDER */}
+        <div
+          className="system-divider"
+          aria-hidden="true"
+        >
+          <span />
+          <b>✦</b>
+          <span />
+        </div>
+
+        {/* MAIN APPLICATION */}
+        <section className="quest-console">
+          <div
+            className="console-corner console-corner-tl"
+            aria-hidden="true"
+          />
+          <div
+            className="console-corner console-corner-tr"
+            aria-hidden="true"
+          />
+          <div
+            className="console-corner console-corner-bl"
+            aria-hidden="true"
+          />
+          <div
+            className="console-corner console-corner-br"
+            aria-hidden="true"
+          />
+
+          <SetupForm />
+        </section>
+
+        {/* Bottom HUD */}
+        <div
+          className="bottom-hud"
+          aria-hidden="true"
+        >
+          <span />
+          <span />
+          <span />
+        </div>
       </div>
     </main>
   );
