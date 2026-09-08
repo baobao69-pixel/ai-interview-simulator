@@ -1395,10 +1395,18 @@ export default function SetupForm() {
     </span>
 )}
                     {currentQuestion.likelihood && (
-                        <span className="border border-slate-400 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-600">
-                            {currentQuestion.likelihood}
-                        </span>
-                    )}
+    <span
+        className={`border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+            currentQuestion.likelihood === "Most Likely"
+                ? "border-green-500 bg-green-50 text-green-700"
+                : currentQuestion.likelihood === "Likely"
+                    ? "border-yellow-500 bg-yellow-50 text-yellow-700"
+                    : "border-slate-400 bg-slate-50 text-slate-600"
+        }`}
+    >
+        {currentQuestion.likelihood}
+    </span>
+)}
                 </div>
 
                 <h2 className="mt-6 text-xl font-bold leading-relaxed">
