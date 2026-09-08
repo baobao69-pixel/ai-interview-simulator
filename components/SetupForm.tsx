@@ -1382,12 +1382,18 @@ export default function SetupForm() {
                     </span>
 
                     {currentQuestion.difficulty && (
-                        <span className="border border-slate-400 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-600">
-                            Difficulty:{" "}
-                            {currentQuestion.difficulty}
-                        </span>
-                    )}
-
+    <span
+        className={`border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+            currentQuestion.difficulty === "Easy"
+                ? "border-green-500 bg-green-50 text-green-700"
+                : currentQuestion.difficulty === "Medium"
+                    ? "border-yellow-500 bg-yellow-50 text-yellow-700"
+                    : "border-red-500 bg-red-50 text-red-700"
+        }`}
+    >
+        Difficulty: {currentQuestion.difficulty}
+    </span>
+)}
                     {currentQuestion.likelihood && (
                         <span className="border border-slate-400 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-600">
                             {currentQuestion.likelihood}
@@ -1399,23 +1405,7 @@ export default function SetupForm() {
                     {currentQuestion.question}
                 </h2>
 
-                {currentQuestion.tips &&
-                    currentQuestion.tips.length > 0 && (
-                        <div className="mt-5 border-2 border-black bg-neutral-50 p-4">
-                            <p className="font-mono text-xs font-bold uppercase tracking-wider text-black">
-                                Tips
-                            </p>
-
-                            <ul className="mt-2 space-y-1 text-sm text-slate-700">
-                                {currentQuestion.tips.map(
-                                    (tip, index) => (
-                                        <li key={index}>
-                                            • {tip}
-                                        </li>
-                                    )
-                                )}
-                            </ul>
-                        </div>
+               
                     )}
             </div>
 
