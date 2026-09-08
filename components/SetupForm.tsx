@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -36,7 +36,7 @@ interface SpeechRecognitionInstance {
 }
 
 interface SpeechRecognitionConstructor {
-    new (): SpeechRecognitionInstance;
+    new(): SpeechRecognitionInstance;
 }
 
 interface SpeechRecognitionWindow extends Window {
@@ -57,6 +57,9 @@ type Feedback = {
 type InterviewQuestion = {
     question: string;
     category: string;
+    tips?: string[];
+    difficulty?: "Easy" | "Medium" | "Hard";
+    likelihood?: "Most Likely" | "Likely" | "Less Likely";
 };
 
 type QuestionResult = {
@@ -74,6 +77,7 @@ type ResumeMatch = {
     suggestions: string[];
     summary: string;
 };
+
 class ApiRequestError extends Error {
     constructor(public status: number, message: string) {
         super(message);
@@ -81,22 +85,20 @@ class ApiRequestError extends Error {
 }
 
 const primaryButton =
-    "rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition duration-200 hover:bg-blue-700 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+    "border-2 border-black bg-black px-4 py-2 font-mono font-bold uppercase tracking-wider text-white transition hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-40";
 
 const secondaryButton =
-    "rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 transition duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60";
+    "border-2 border-black bg-white px-4 py-2 font-mono font-bold uppercase tracking-wider text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40";
 
 const inputClass =
-    "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 transition duration-200 outline-none placeholder:text-slate-400 hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+    "w-full border-2 border-black bg-white px-3 py-2.5 font-mono text-black outline-none placeholder:text-neutral-400 focus:bg-neutral-100";
 
 function formatDuration(totalSeconds: number) {
     const minutes = Math.floor(totalSeconds / 60)
         .toString()
         .padStart(2, "0");
 
-    const seconds = (totalSeconds % 60)
-        .toString()
-        .padStart(2, "0");
+    const seconds = (totalSeconds % 60).toString().padStart(2, "0");
 
     return `${minutes}:${seconds}`;
 }
@@ -112,78 +114,40 @@ async function getApiError(response: Response) {
     return new ApiRequestError(response.status, message);
 }
 
-async function analyzeResumeMatch() {
-    if (!resumeText.trim()) {
-        setMatchError("Please upload and analyze a resume first.");
-        return;
-    }
-
-    if (!role.trim()) {
-        setMatchError("Please enter the target job role first.");
-        return;
-    }
-
-    setIsAnalyzingMatch(true);
-    setMatchError("");
-    setResumeMatch(null);
-
-    try {
-        const response = await fetch("/api/resume-match", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                role,
-                jobDescription,
-                requiredSkills,
-                resumeText,
-            }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(
-                data.error || "Unable to analyze resume match."
-            );
-        }
-
-        setResumeMatch(data as ResumeMatch);
-    } catch (error) {
-        setMatchError(
-            error instanceof Error
-                ? error.message
-                : "Unable to analyze resume match."
-        );
-    } finally {
-        setIsAnalyzingMatch(false);
-    }
-}
-
 function errorMessage(error: unknown, fallback: string) {
-    return error instanceof ApiRequestError && error.status === 429
-        ? error.message
-        : fallback;
+    if (error instanceof ApiRequestError && error.status === 429) {
+        return error.message;
+    }
+
+    return fallback;
 }
 
-function StarScore({ label, score }: { label: string; score: number }) {
+function StarScore({
+    label,
+    score,
+}: {
+    label: string;
+    score: number;
+}) {
+    const safeScore = Math.max(0, Math.min(10, Math.round(score)));
+
     return (
         <div>
             <div className="flex items-center justify-between gap-3">
                 <span className="font-medium text-slate-700">{label}</span>
+
                 <span className="text-sm font-semibold text-slate-900">
-                    {score}/10
+                    {safeScore}/10
                 </span>
             </div>
 
             <p
                 className="mt-1 text-amber-500"
-                aria-label={`${label}: ${score} out of 10`}
+                aria-label={`${label}: ${safeScore} out of 10`}
             >
-                {"*".repeat(score)}
+                {"★".repeat(safeScore)}
                 <span className="text-slate-300">
-                    {"★".repeat(10 - score)}
+                    {"★".repeat(10 - safeScore)}
                 </span>
             </p>
         </div>
@@ -192,51 +156,70 @@ function StarScore({ label, score }: { label: string; score: number }) {
 
 export default function SetupForm() {
     const sessionEndedRef = useRef(false);
-    const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+    const recognitionRef =
+        useRef<SpeechRecognitionInstance | null>(null);
     const voiceBaseAnswerRef = useRef("");
 
     const [role, setRole] = useState("");
     const [company, setCompany] = useState("");
     const [jobDescription, setJobDescription] = useState("");
     const [requiredSkills, setRequiredSkills] = useState("");
-    const [resumeFile, setResumeFile] = useState<File | null>(null);
+
+    const [resumeFile, setResumeFile] =
+        useState<File | null>(null);
     const [resumeText, setResumeText] = useState("");
-    const [isParsingResume, setIsParsingResume] = useState(false);
+    const [isParsingResume, setIsParsingResume] =
+        useState(false);
     const [resumeError, setResumeError] = useState("");
-    const [resumeMatch, setResumeMatch] = useState<ResumeMatch | null>(null);
-    const [isAnalyzingMatch, setIsAnalyzingMatch] = useState(false);
+
+    const [resumeMatch, setResumeMatch] =
+        useState<ResumeMatch | null>(null);
+    const [isAnalyzingMatch, setIsAnalyzingMatch] =
+        useState(false);
     const [matchError, setMatchError] = useState("");
-    const [interviewType, setInterviewType] = useState("Technical");
-    const [experienceLevel, setExperienceLevel] = useState("Fresher");
+
+    const [interviewType, setInterviewType] =
+        useState("Technical");
+    const [experienceLevel, setExperienceLevel] =
+        useState("Fresher");
     const [questionCount, setQuestionCount] = useState("5");
 
-    const [interviewStarted, setInterviewStarted] = useState(false);
-    const [interviewCompleted, setInterviewCompleted] = useState(false);
+    const [interviewStarted, setInterviewStarted] =
+        useState(false);
+    const [interviewCompleted, setInterviewCompleted] =
+        useState(false);
     const [totalQuestions, setTotalQuestions] = useState(0);
-    const [currentQuestionNumber, setCurrentQuestionNumber] = useState(0);
+    const [currentQuestionNumber, setCurrentQuestionNumber] =
+        useState(0);
 
-    const [previousQuestions, setPreviousQuestions] = useState<string[]>([]);
-    const [questionResults, setQuestionResults] = useState<QuestionResult[]>(
-        []
-    );
+    const [previousQuestions, setPreviousQuestions] =
+        useState<string[]>([]);
+    const [questionResults, setQuestionResults] =
+        useState<QuestionResult[]>([]);
 
     const [currentQuestion, setCurrentQuestion] =
         useState<InterviewQuestion | null>(null);
 
     const [answer, setAnswer] = useState("");
-    const [feedback, setFeedback] = useState<Feedback | null>(null);
-    const [answerSubmitted, setAnswerSubmitted] = useState(false);
+    const [feedback, setFeedback] =
+        useState<Feedback | null>(null);
+    const [answerSubmitted, setAnswerSubmitted] =
+        useState(false);
 
     const [isLoading, setIsLoading] = useState(false);
-    const [isEvaluating, setIsEvaluating] = useState(false);
+    const [isEvaluating, setIsEvaluating] =
+        useState(false);
     const [error, setError] = useState("");
 
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
-    const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const [isTimerRunning, setIsTimerRunning] =
+        useState(false);
     const [isListening, setIsListening] = useState(false);
 
     useEffect(() => {
-        if (!isTimerRunning) return;
+        if (!isTimerRunning) {
+            return;
+        }
 
         const intervalId = window.setInterval(() => {
             setElapsedSeconds((seconds) => seconds + 1);
@@ -245,46 +228,125 @@ export default function SetupForm() {
         return () => window.clearInterval(intervalId);
     }, [isTimerRunning]);
 
-
     useEffect(() => {
         return () => {
             recognitionRef.current?.stop();
         };
     }, []);
 
-    function startListening() {
-        const SpeechRecognition =
-            (window as SpeechRecognitionWindow).SpeechRecognition ||
-            (window as SpeechRecognitionWindow).webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-            setError("Voice input is not supported in this browser. Please use Google Chrome or type your answer.");
+    async function analyzeResumeMatch() {
+        if (!resumeText.trim()) {
+            setMatchError(
+                "Please upload and analyze a resume first."
+            );
             return;
         }
 
-        if (isListening) return;
+        if (!role.trim()) {
+            setMatchError(
+                "Please enter the target job role first."
+            );
+            return;
+        }
+
+        setIsAnalyzingMatch(true);
+        setMatchError("");
+        setResumeMatch(null);
+
+        try {
+            const response = await fetch("/api/resume-match", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    role,
+                    jobDescription,
+                    requiredSkills,
+                    resumeText,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "Unable to analyze resume match."
+                );
+            }
+
+            setResumeMatch(data as ResumeMatch);
+        } catch (caughtError) {
+            setMatchError(
+                caughtError instanceof Error
+                    ? caughtError.message
+                    : "Unable to analyze resume match."
+            );
+        } finally {
+            setIsAnalyzingMatch(false);
+        }
+    }
+
+    function startListening() {
+        const SpeechRecognition =
+            (window as SpeechRecognitionWindow)
+                .SpeechRecognition ||
+            (window as SpeechRecognitionWindow)
+                .webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            setError(
+                "Voice input is not supported in this browser. Please use Google Chrome or type your answer."
+            );
+            return;
+        }
+
+        if (isListening) {
+            return;
+        }
 
         setError("");
+
         const recognition = new SpeechRecognition();
+
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = "en-US";
+
         voiceBaseAnswerRef.current = answer.trim();
 
-        recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        recognition.onresult = (
+            event: SpeechRecognitionEventLike
+        ) => {
             let transcript = "";
-            for (let i = event.resultIndex; i < event.results.length; i++) {
+
+            for (
+                let i = event.resultIndex;
+                i < event.results.length;
+                i++
+            ) {
                 transcript += event.results[i][0].transcript;
             }
 
             const base = voiceBaseAnswerRef.current;
-            setAnswer(`${base}${base && transcript.trim() ? " " : ""}${transcript}`.trim());
+
+            setAnswer(
+                `${base}${base && transcript.trim() ? " " : ""}${transcript}`.trim()
+            );
         };
 
-        recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-            if (event.error !== "no-speech" && event.error !== "aborted") {
-                setError("Voice input stopped unexpectedly. Please try again.");
+        recognition.onerror = (
+            event: SpeechRecognitionErrorEventLike
+        ) => {
+            if (
+                event.error !== "no-speech" &&
+                event.error !== "aborted"
+            ) {
+                setError(
+                    "Voice input stopped unexpectedly. Please try again."
+                );
             }
+
             recognitionRef.current = null;
             setIsListening(false);
         };
@@ -300,7 +362,10 @@ export default function SetupForm() {
         try {
             recognition.start();
         } catch {
-            setError("Unable to start voice input. Please try again.");
+            setError(
+                "Unable to start voice input. Please try again."
+            );
+
             recognitionRef.current = null;
             setIsListening(false);
         }
@@ -311,37 +376,58 @@ export default function SetupForm() {
             recognitionRef.current.stop();
             recognitionRef.current = null;
         }
+
         setIsListening(false);
     }
 
-    async function generateQuestion(questionHistory: string[]) {
-        const response = await fetch("/api/interview-question", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                role,
-                company,
-                jobDescription,
-                requiredSkills,
-                resumeText,
-                interviewType,
-                experienceLevel,
-                previousQuestions: questionHistory,
-            }),
-        });
+    async function generateQuestion(
+        questionHistory: string[]
+    ) {
+        const response = await fetch(
+            "/api/interview-question",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    role,
+                    company,
+                    jobDescription,
+                    requiredSkills,
+                    resumeText,
+                    interviewType,
+                    experienceLevel,
+                    previousQuestions: questionHistory,
+                }),
+            }
+        );
 
         if (!response.ok) {
             throw await getApiError(response);
         }
 
-        return (await response.json()) as InterviewQuestion;
+        const data =
+            (await response.json()) as InterviewQuestion;
+
+        if (
+            !data ||
+            typeof data.question !== "string" ||
+            typeof data.category !== "string"
+        ) {
+            throw new Error(
+                "The question service returned an invalid response."
+            );
+        }
+
+        return data;
     }
 
     function clearCurrentQuestionState() {
         stopListening();
+
         voiceBaseAnswerRef.current = "";
+
         setAnswer("");
         setFeedback(null);
         setAnswerSubmitted(false);
@@ -349,13 +435,17 @@ export default function SetupForm() {
 
     async function startInterview() {
         if (!role.trim()) {
-            setError("Please enter the role you are interviewing for.");
+            setError(
+                "Please enter the role you are interviewing for."
+            );
             return;
         }
 
         setIsLoading(true);
         setError("");
+
         sessionEndedRef.current = false;
+
         setIsTimerRunning(false);
         setElapsedSeconds(0);
 
@@ -392,16 +482,22 @@ export default function SetupForm() {
         setError("");
 
         try {
-            const nextQuestion = await generateQuestion(previousQuestions);
+            const nextQuestion =
+                await generateQuestion(previousQuestions);
 
-            if (sessionEndedRef.current) return;
+            if (sessionEndedRef.current) {
+                return;
+            }
 
             setPreviousQuestions((questions) => [
                 ...questions,
                 nextQuestion.question,
             ]);
 
-            setCurrentQuestionNumber((number) => number + 1);
+            setCurrentQuestionNumber(
+                (number) => number + 1
+            );
+
             setCurrentQuestion(nextQuestion);
 
             clearCurrentQuestionState();
@@ -420,38 +516,47 @@ export default function SetupForm() {
     }
 
     async function submitAnswer() {
-        if (!currentQuestion || !answer.trim()) return;
+        if (!currentQuestion || !answer.trim()) {
+            return;
+        }
+
         stopListening();
 
         setIsEvaluating(true);
         setError("");
 
         try {
-            const response = await fetch("/api/interview-feedback", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    role,
-                    company,
-                    jobDescription,
-                    requiredSkills,
-                    interviewType,
-                    experienceLevel,
-                    question: currentQuestion.question,
-                    category: currentQuestion.category,
-                    answer,
-                }),
-            });
+            const response = await fetch(
+                "/api/interview-feedback",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        role,
+                        company,
+                        jobDescription,
+                        requiredSkills,
+                        interviewType,
+                        experienceLevel,
+                        question: currentQuestion.question,
+                        category: currentQuestion.category,
+                        answer,
+                    }),
+                }
+            );
 
             if (!response.ok) {
                 throw await getApiError(response);
             }
 
-            const questionFeedback = (await response.json()) as Feedback;
+            const questionFeedback =
+                (await response.json()) as Feedback;
 
-            if (sessionEndedRef.current) return;
+            if (sessionEndedRef.current) {
+                return;
+            }
 
             setFeedback(questionFeedback);
 
@@ -482,7 +587,14 @@ export default function SetupForm() {
     }
 
     async function skipQuestion() {
-        if (!currentQuestion || isLoading || isEvaluating) return;
+        if (
+            !currentQuestion ||
+            isLoading ||
+            isEvaluating
+        ) {
+            return;
+        }
+
         stopListening();
 
         const skippedResult: QuestionResult = {
@@ -491,7 +603,10 @@ export default function SetupForm() {
             status: "skipped",
         };
 
-        setQuestionResults((results) => [...results, skippedResult]);
+        setQuestionResults((results) => [
+            ...results,
+            skippedResult,
+        ]);
 
         clearCurrentQuestionState();
 
@@ -506,10 +621,15 @@ export default function SetupForm() {
 
     function endInterview() {
         stopListening();
+
         sessionEndedRef.current = true;
+
         setIsTimerRunning(false);
 
-        if (currentQuestion && !answerSubmitted) {
+        if (
+            currentQuestion &&
+            !answerSubmitted
+        ) {
             setQuestionResults((results) => [
                 ...results,
                 {
@@ -525,13 +645,16 @@ export default function SetupForm() {
 
     function finishInterview() {
         stopListening();
+
         setIsTimerRunning(false);
         setInterviewCompleted(true);
     }
 
     function resetSession() {
         stopListening();
+
         sessionEndedRef.current = false;
+
         setIsTimerRunning(false);
         setElapsedSeconds(0);
 
@@ -552,19 +675,23 @@ export default function SetupForm() {
     }
 
     const answeredResults = questionResults.filter(
-        (result) => result.status === "answered" && result.feedback
+        (result) =>
+            result.status === "answered" &&
+            result.feedback
     );
 
     const skippedCount = questionResults.filter(
         (result) => result.status === "skipped"
     ).length;
 
-    const averageScore = answeredResults.length
-        ? answeredResults.reduce(
-            (total, result) => total + result.feedback!.overall,
-            0
-        ) / answeredResults.length
-        : null;
+    const averageScore =
+        answeredResults.length > 0
+            ? answeredResults.reduce(
+                (total, result) =>
+                    total + result.feedback!.overall,
+                0
+            ) / answeredResults.length
+            : null;
 
     const verdict =
         averageScore === null || averageScore < 5
@@ -574,6 +701,35 @@ export default function SetupForm() {
                 : averageScore < 8.5
                     ? "Good"
                     : "Strong";
+
+    const overallSummary = (() => {
+        if (answeredResults.length === 0) {
+            return "No answers were evaluated, so there is not enough information to summarize your performance.";
+        }
+
+        if (
+            averageScore !== null &&
+            averageScore >= 8
+        ) {
+            return "Strong overall performance. Your answers were consistently relevant and well-developed, with only minor areas to improve.";
+        }
+
+        if (
+            averageScore !== null &&
+            averageScore >= 6
+        ) {
+            return "A solid performance overall. You demonstrated good understanding, but improving clarity and depth would make your answers stronger.";
+        }
+
+        if (
+            averageScore !== null &&
+            averageScore >= 4
+        ) {
+            return "A developing performance. You showed some relevant knowledge, but your answers would benefit from clearer structure and more depth.";
+        }
+
+        return "This interview highlighted several areas for improvement. Focus on building clearer, more complete answers and strengthening your understanding of key topics.";
+    })();
 
     const progress = totalQuestions
         ? (currentQuestionNumber / totalQuestions) * 100
@@ -605,26 +761,35 @@ export default function SetupForm() {
     if (!interviewStarted) {
         return (
             <section className="mx-auto w-full max-w-2xl">
-                <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-900">
-                            Set Up Your Interview
+                <div className="space-y-6 border-2 border-black bg-white p-5 sm:p-8">
+                    <div className="border-b-2 border-black pb-4">
+                        <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-black">
+                            AI INTERVIEW SIMULATOR
+                        </p>
+
+                        <h2 className="mt-2 font-mono text-2xl font-bold uppercase tracking-tight text-black">
+                            Set Up Interview
                         </h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                            Add the details you have. The interview questions
-                            will adapt to them.
+
+                        <p className="mt-2 text-sm text-neutral-600">
+                            Add your interview details. Questions will
+                            adapt to your role, skills, resume, and
+                            experience.
                         </p>
                     </div>
 
                     <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">
+                        <label className="mb-1 block font-mono text-xs font-bold uppercase tracking-wider text-black">
                             Role you are interviewing for
                         </label>
+
                         <input
                             type="text"
                             placeholder="e.g. Software Developer"
                             value={role}
-                            onChange={(event) => setRole(event.target.value)}
+                            onChange={(event) =>
+                                setRole(event.target.value)
+                            }
                             className={inputClass}
                         />
                     </div>
@@ -636,6 +801,7 @@ export default function SetupForm() {
                                 (optional)
                             </span>
                         </label>
+
                         <input
                             type="text"
                             placeholder="Company name"
@@ -650,10 +816,11 @@ export default function SetupForm() {
                     <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700">
                             Job Description
-                            <span className="ml-1 text-slate-400">
+                            <span className="ml-1 font-normal normal-case text-neutral-500">
                                 (optional)
                             </span>
                         </label>
+
                         <textarea
                             placeholder="Paste the job description here..."
                             value={jobDescription}
@@ -672,6 +839,7 @@ export default function SetupForm() {
                                 (optional)
                             </span>
                         </label>
+
                         <input
                             type="text"
                             placeholder="e.g. React, TypeScript, SQL, Node.js"
@@ -695,53 +863,88 @@ export default function SetupForm() {
                             type="file"
                             accept=".pdf,application/pdf"
                             onChange={async (event) => {
-                                const file = event.target.files?.[0] || null;
+                                const file =
+                                    event.target.files?.[0] || null;
 
                                 setResumeFile(file);
                                 setResumeText("");
                                 setResumeError("");
+                                setResumeMatch(null);
+                                setMatchError("");
 
-                                if (!file) return;
+                                if (!file) {
+                                    return;
+                                }
 
                                 setIsParsingResume(true);
 
                                 try {
                                     const formData = new FormData();
-                                    formData.append("resume", file);
 
-                                    const response = await fetch("/api/resume-parse", {
-                                        method: "POST",
-                                        body: formData,
-                                    });
+                                    formData.append(
+                                        "resume",
+                                        file
+                                    );
 
-                                    const data = await response.json();
+                                    const response = await fetch(
+                                        "/api/resume-parse",
+                                        {
+                                            method: "POST",
+                                            body: formData,
+                                        }
+                                    );
+
+                                    const data =
+                                        await response.json();
 
                                     if (!response.ok) {
-                                        throw new Error(data.error || "Unable to analyze resume.");
+                                        throw new Error(
+                                            data.error ||
+                                            "Unable to analyze resume."
+                                        );
                                     }
 
                                     setResumeText(data.text);
-                                } catch (error) {
+                                } catch (caughtError) {
                                     setResumeError(
-                                        error instanceof Error
-                                            ? error.message
+                                        caughtError instanceof Error
+                                            ? caughtError.message
                                             : "Unable to analyze resume."
                                     );
                                 } finally {
                                     setIsParsingResume(false);
                                 }
                             }}
+                        />
 
-                            {resumeFile && (
-                                <p className="mt-2 text-sm text-slate-600">
-                                    Selected:{" "}
-                                    <span className="font-medium text-slate-800">
-                                        {resumeFile.name}
-                                    </span>
-                                </p>
-                            )}
+                        {isParsingResume && (
+                            <p className="mt-2 text-sm">
+                                Analyzing resume...
+                            </p>
+                        )}
 
-                            <button
+                        {resumeText && (
+                            <p className="mt-2 text-sm">
+                                Resume analyzed successfully.
+                            </p>
+                        )}
+
+                        {resumeError && (
+                            <p className="mt-2 text-sm font-medium">
+                                {resumeError}
+                            </p>
+                        )}
+
+                        {resumeFile && (
+                            <p className="mt-2 font-mono text-sm text-neutral-700">
+                                Selected:{" "}
+                                <span className="font-bold text-black">
+                                    {resumeFile.name}
+                                </span>
+                            </p>
+                        )}
+
+                        <button
                             type="button"
                             onClick={analyzeResumeMatch}
                             disabled={
@@ -750,7 +953,7 @@ export default function SetupForm() {
                                 !resumeText.trim() ||
                                 !role.trim()
                             }
-                            className="mt-3 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="mt-3 border-2 border-black bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             {isAnalyzingMatch
                                 ? "Analyzing Resume..."
@@ -758,43 +961,44 @@ export default function SetupForm() {
                         </button>
 
                         {matchError && (
-                            <p className="mt-2 text-sm text-red-600">
+                            <p className="mt-2 border-2 border-black bg-white px-3 py-2 font-mono text-xs font-bold text-black">
                                 {matchError}
                             </p>
                         )}
 
                         {resumeMatch && (
-                            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <div className="flex items-center justify-between">
+                            <div className="mt-4 border-2 border-black bg-white p-4">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
-                                        <p className="text-sm font-medium text-slate-500">
+                                        <p className="font-mono text-xs font-bold uppercase tracking-wider text-black">
                                             Resume Match
                                         </p>
-                                        <p className="text-3xl font-bold text-slate-900">
+
+                                        <p className="font-mono text-3xl font-bold text-black">
                                             {resumeMatch.matchPercentage}%
                                         </p>
                                     </div>
 
-                                    <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-                                        Target: {role}
+                                    <span className="border border-black px-3 py-1 font-mono text-xs font-bold uppercase text-black">
+                                        {role}
                                     </span>
                                 </div>
 
-                                <p className="mt-3 text-sm text-slate-600">
+                                <p className="mt-4 text-sm text-black">
                                     {resumeMatch.summary}
                                 </p>
 
-                                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                                <div className="mt-5 grid gap-5 md:grid-cols-3">
                                     <div>
-                                        <h3 className="text-sm font-semibold text-slate-800">
+                                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-black">
                                             Matching Strengths
                                         </h3>
 
-                                        <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                                        <ul className="mt-2 space-y-2 text-sm text-black">
                                             {resumeMatch.matchingStrengths.map(
                                                 (strength, index) => (
                                                     <li key={index}>
-                                                        {strength}
+                                                        • {strength}
                                                     </li>
                                                 )
                                             )}
@@ -802,15 +1006,15 @@ export default function SetupForm() {
                                     </div>
 
                                     <div>
-                                        <h3 className="text-sm font-semibold text-slate-800">
+                                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-black">
                                             Missing Areas
                                         </h3>
 
-                                        <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                                        <ul className="mt-2 space-y-2 text-sm text-black">
                                             {resumeMatch.missingAreas.map(
                                                 (area, index) => (
                                                     <li key={index}>
-                                                        {area}
+                                                        • {area}
                                                     </li>
                                                 )
                                             )}
@@ -818,15 +1022,15 @@ export default function SetupForm() {
                                     </div>
 
                                     <div>
-                                        <h3 className="text-sm font-semibold text-slate-800">
+                                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-black">
                                             Suggestions
                                         </h3>
 
-                                        <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                                        <ul className="mt-2 space-y-2 text-sm text-black">
                                             {resumeMatch.suggestions.map(
                                                 (suggestion, index) => (
                                                     <li key={index}>
-                                                        {suggestion}
+                                                        • {suggestion}
                                                     </li>
                                                 )
                                             )}
@@ -837,7 +1041,8 @@ export default function SetupForm() {
                         )}
 
                         <p className="mt-1 text-xs text-slate-400">
-                            Your resume is parsed and used to tailor questions and analyze role fit.
+                            Your resume is parsed and used to tailor
+                            questions and analyze role fit.
                         </p>
                     </div>
 
@@ -854,30 +1059,18 @@ export default function SetupForm() {
                                 }
                                 className={inputClass}
                             >
-
-                                {isParsingResume && (
-                                    <p className="mt-2 text-sm text-blue-600">
-                                        Analyzing resume...
-                                    </p>
-                                )}
-
-                                {resumeText && (
-                                    <p className="mt-2 text-sm text-emerald-600">
-                                        Resume analyzed successfully
-                                    </p>
-                                )}
-
-                                {resumeError && (
-                                    <p className="mt-2 text-sm text-red-600">
-                                        {resumeError}
-                                    </p>
-                                )}
-                                <option value="Technical">Technical</option>
-                                <option value="Behavioral">Behavioral</option>
+                                <option value="Technical">
+                                    Technical
+                                </option>
+                                <option value="Behavioral">
+                                    Behavioral
+                                </option>
                                 <option value="System Design">
                                     System Design
                                 </option>
-                                <option value="Mixed">Mixed</option>
+                                <option value="Mixed">
+                                    Mixed
+                                </option>
                             </select>
                         </div>
 
@@ -889,14 +1082,24 @@ export default function SetupForm() {
                             <select
                                 value={experienceLevel}
                                 onChange={(event) =>
-                                    setExperienceLevel(event.target.value)
+                                    setExperienceLevel(
+                                        event.target.value
+                                    )
                                 }
                                 className={inputClass}
                             >
-                                <option value="Fresher">Fresher</option>
-                                <option value="Junior">Junior</option>
-                                <option value="Mid-Level">Mid-Level</option>
-                                <option value="Senior">Senior</option>
+                                <option value="Fresher">
+                                    Fresher
+                                </option>
+                                <option value="Junior">
+                                    Junior
+                                </option>
+                                <option value="Mid-Level">
+                                    Mid-Level
+                                </option>
+                                <option value="Senior">
+                                    Senior
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -906,6 +1109,7 @@ export default function SetupForm() {
                             <label className="text-sm font-medium text-slate-700">
                                 Number of Questions
                             </label>
+
                             <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
                                 {questionCount}
                             </span>
@@ -957,6 +1161,7 @@ export default function SetupForm() {
                             <p className="text-sm text-slate-600">
                                 Average Score
                             </p>
+
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {averageScore === null
                                     ? "N/A"
@@ -968,6 +1173,7 @@ export default function SetupForm() {
                             <p className="text-sm text-slate-600">
                                 Answered
                             </p>
+
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {answeredResults.length}
                             </p>
@@ -977,6 +1183,7 @@ export default function SetupForm() {
                             <p className="text-sm text-slate-600">
                                 Skipped
                             </p>
+
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {skippedCount}
                             </p>
@@ -986,6 +1193,7 @@ export default function SetupForm() {
                             <p className="text-sm text-slate-600">
                                 Total Interview Time
                             </p>
+
                             <p className="mt-1 text-3xl font-bold text-slate-900">
                                 {formatDuration(elapsedSeconds)}
                             </p>
@@ -995,6 +1203,16 @@ export default function SetupForm() {
                     <p className="mt-5 text-lg font-semibold text-slate-900">
                         Verdict: {verdict}
                     </p>
+
+                    <div className="mt-3 border border-slate-300 bg-slate-50 p-4">
+                        <p className="font-mono text-xs font-bold uppercase tracking-wider text-slate-600">
+                            Overall Performance
+                        </p>
+
+                        <p className="mt-2 text-sm leading-relaxed text-slate-800">
+                            {overallSummary}
+                        </p>
+                    </div>
 
                     {averageScore === null && (
                         <p className="mt-1 text-slate-600">
@@ -1011,7 +1229,9 @@ export default function SetupForm() {
 
                     <div className="mt-4 space-y-4">
                         {[...questionResults]
-                            .sort((a, b) => a.number - b.number)
+                            .sort(
+                                (a, b) => a.number - b.number
+                            )
                             .map((result) => (
                                 <article
                                     key={result.number}
@@ -1049,12 +1269,16 @@ export default function SetupForm() {
                                             </p>
 
                                             <p>
-                                                <strong>Strengths:</strong>{" "}
+                                                <strong>
+                                                    Strengths:
+                                                </strong>{" "}
                                                 {result.feedback.strengths}
                                             </p>
 
                                             <p>
-                                                <strong>Improvements:</strong>{" "}
+                                                <strong>
+                                                    Improvements:
+                                                </strong>{" "}
                                                 {result.feedback.improvements}
                                             </p>
                                         </div>
@@ -1079,7 +1303,9 @@ export default function SetupForm() {
         );
     }
 
-    if (!currentQuestion) return null;
+    if (!currentQuestion) {
+        return null;
+    }
 
     return (
         <section className="space-y-6">
@@ -1094,7 +1320,8 @@ export default function SetupForm() {
 
                 <div className="flex items-center gap-3">
                     <p className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-                        Interview Time: {formatDuration(elapsedSeconds)}
+                        Interview Time:{" "}
+                        {formatDuration(elapsedSeconds)}
                     </p>
 
                     <button
@@ -1129,40 +1356,91 @@ export default function SetupForm() {
 
                 <div className="mt-4 flex items-center justify-between text-sm font-semibold text-slate-600">
                     <span>
-                        Question {currentQuestionNumber} of {totalQuestions}
+                        Question {currentQuestionNumber} of{" "}
+                        {totalQuestions}
                     </span>
 
-                    <span>{Math.round(progress)}% complete</span>
+                    <span>
+                        {Math.round(progress)}% complete
+                    </span>
                 </div>
 
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
                     <div
                         className="h-full rounded-full bg-blue-600 transition-all duration-300"
-                        style={{ width: `${progress}%` }}
+                        style={{
+                            width: `${progress}%`,
+                        }}
                     />
                 </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">
-                    {currentQuestion.category}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                    <span className="border border-current px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                        {currentQuestion.category}
+                    </span>
 
-                <h2 className="mt-4 text-xl font-bold text-slate-900">
+                    {currentQuestion.difficulty && (
+                        <span className="border border-slate-400 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-600">
+                            Difficulty:{" "}
+                            {currentQuestion.difficulty}
+                        </span>
+                    )}
+
+                    {currentQuestion.likelihood && (
+                        <span className="border border-slate-400 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-600">
+                            {currentQuestion.likelihood}
+                        </span>
+                    )}
+                </div>
+
+                <h2 className="mt-6 text-xl font-bold leading-relaxed">
                     {currentQuestion.question}
                 </h2>
+
+                {currentQuestion.tips &&
+                    currentQuestion.tips.length > 0 && (
+                        <div className="mt-5 border-2 border-black bg-neutral-50 p-4">
+                            <p className="font-mono text-xs font-bold uppercase tracking-wider text-black">
+                                Tips
+                            </p>
+
+                            <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                                {currentQuestion.tips.map(
+                                    (tip, index) => (
+                                        <li key={index}>
+                                            • {tip}
+                                        </li>
+                                    )
+                                )}
+                            </ul>
+                        </div>
+                    )}
             </div>
 
             {!answerSubmitted ? (
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <label className="font-semibold text-slate-800">Your Answer</label>
+                        <label className="font-semibold text-slate-800">
+                            Your Answer
+                        </label>
+
                         {!isListening ? (
-                            <button type="button" onClick={startListening} disabled={isEvaluating} className="rounded-lg bg-red-500 px-4 py-2 font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60">
+                            <button
+                                type="button"
+                                onClick={startListening}
+                                disabled={isEvaluating}
+                                className="rounded-lg bg-red-500 px-4 py-2 font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
                                 Start Speaking
                             </button>
                         ) : (
-                            <button type="button" onClick={stopListening} className="rounded-lg bg-slate-800 px-4 py-2 font-semibold text-white transition hover:bg-slate-900">
+                            <button
+                                type="button"
+                                onClick={stopListening}
+                                className="rounded-lg bg-slate-800 px-4 py-2 font-semibold text-white transition hover:bg-slate-900"
+                            >
                                 Stop Listening
                             </button>
                         )}
@@ -1178,7 +1456,9 @@ export default function SetupForm() {
                         placeholder="Type your answer here or use voice input..."
                         rows={10}
                         value={answer}
-                        onChange={(event) => setAnswer(event.target.value)}
+                        onChange={(event) =>
+                            setAnswer(event.target.value)
+                        }
                         className={inputClass}
                     />
 
@@ -1193,7 +1473,9 @@ export default function SetupForm() {
                         <button
                             type="button"
                             onClick={submitAnswer}
-                            disabled={isEvaluating || !answer.trim()}
+                            disabled={
+                                isEvaluating || !answer.trim()
+                            }
                             className={primaryButton}
                         >
                             {isEvaluating
@@ -1204,7 +1486,9 @@ export default function SetupForm() {
                         <button
                             type="button"
                             onClick={skipQuestion}
-                            disabled={isLoading || isEvaluating}
+                            disabled={
+                                isLoading || isEvaluating
+                            }
                             className="rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-900 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             Skip
@@ -1241,9 +1525,29 @@ export default function SetupForm() {
                             className="text-2xl text-blue-600"
                             aria-label={`Overall score: ${feedback.overall} out of 10`}
                         >
-                            {"*".repeat(feedback.overall)}
+                            {"★".repeat(
+                                Math.max(
+                                    0,
+                                    Math.min(
+                                        10,
+                                        Math.round(feedback.overall)
+                                    )
+                                )
+                            )}
+
                             <span className="text-slate-300">
-                                {".".repeat(10 - feedback.overall)}
+                                {"★".repeat(
+                                    10 -
+                                    Math.max(
+                                        0,
+                                        Math.min(
+                                            10,
+                                            Math.round(
+                                                feedback.overall
+                                            )
+                                        )
+                                    )
+                                )}
                             </span>
                         </p>
                     </div>
@@ -1254,7 +1558,10 @@ export default function SetupForm() {
                             score={feedback.clarity}
                         />
 
-                        <StarScore label="Depth" score={feedback.depth} />
+                        <StarScore
+                            label="Depth"
+                            score={feedback.depth}
+                        />
 
                         <StarScore
                             label="Relevance"
@@ -1284,7 +1591,20 @@ export default function SetupForm() {
                         </div>
                     </div>
 
-                    {currentQuestionNumber === totalQuestions ? (
+                    {feedback.model_answer_hint && (
+                        <div className="rounded-lg border border-slate-300 bg-white p-4">
+                            <h3 className="font-bold text-slate-800">
+                                Better Answer Hint
+                            </h3>
+
+                            <p className="mt-2 text-slate-700">
+                                {feedback.model_answer_hint}
+                            </p>
+                        </div>
+                    )}
+
+                    {currentQuestionNumber ===
+                        totalQuestions ? (
                         <button
                             type="button"
                             onClick={finishInterview}
