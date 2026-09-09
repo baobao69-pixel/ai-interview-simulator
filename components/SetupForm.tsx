@@ -1414,7 +1414,7 @@ export default function SetupForm() {
                 </h2>
 
                
-                    )}
+                    
             </div>
 
             {!answerSubmitted ? (
