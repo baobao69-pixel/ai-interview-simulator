@@ -112,7 +112,7 @@ Return JSON only.
 
         const response =
             await gemini.models.generateContent({
-                model: "gemini-3-flash-preview",
+                model: "gemini-2.5-flash-lite",
                 contents: prompt,
                 config: {
                     maxOutputTokens: 2048,
