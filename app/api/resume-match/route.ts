@@ -57,17 +57,17 @@ export async function POST(request: Request) {
 
         const resume = normalize(resumeText);
 
-        const terms = [
-            ...new Set(
-                extractTerms(`${requiredSkills} ${jobDescription}`)
-            ),
-        ];
+	const skillTerms = extractTerms(
+    		`${requiredSkills} ${jobDescription}`
+	);
 
-        const matchedTerms = terms.filter((term) =>
+        const uniqueTerms = Array.from(new Set(skillTerms));
+
+        const matchedTerms = uniqueTerms.filter((term) =>
             resume.includes(term)
         );
 
-        const missingTerms = terms.filter(
+        const missingTerms = uniqueTerms.filter(
             (term) => !resume.includes(term)
         );
 
@@ -77,9 +77,9 @@ export async function POST(request: Request) {
         );
 
         const skillScore =
-            terms.length > 0
-                ? matchedTerms.length / terms.length
-                : 0;
+    	   uniqueTerms.length > 0
+        	? matchedTerms.length / uniqueTerms.length
+        	: 0;
 
         const roleScore =
             roleTerms.length > 0
