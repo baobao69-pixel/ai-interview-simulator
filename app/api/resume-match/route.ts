@@ -1,5 +1,4 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 type ResumeMatchRequest = {
     role?: unknown;
@@ -8,177 +7,135 @@ type ResumeMatchRequest = {
     resumeText?: unknown;
 };
 
-type ResumeMatchResult = {
-    matchPercentage: number;
-    matchingStrengths: string[];
-    missingAreas: string[];
-    suggestions: string[];
-    summary: string;
-};
+function normalize(text: string) {
+    return text
+        .toLowerCase()
+        .replace(/[^a-z0-9+#.\s-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
 
-function isResumeMatchResult(
-    value: unknown
-): value is ResumeMatchResult {
-    if (!value || typeof value !== "object") return false;
-
-    const candidate = value as Record<string, unknown>;
-
-    return (
-        typeof candidate.matchPercentage === "number" &&
-        candidate.matchPercentage >= 0 &&
-        candidate.matchPercentage <= 100 &&
-        Array.isArray(candidate.matchingStrengths) &&
-        Array.isArray(candidate.missingAreas) &&
-        Array.isArray(candidate.suggestions) &&
-        typeof candidate.summary === "string"
-    );
+function extractTerms(text: string) {
+    return normalize(text)
+        .split(/[\s,;|/]+/)
+        .filter((term) => term.length >= 3);
 }
 
 export async function POST(request: Request) {
     try {
-        const body = (await request.json()) as ResumeMatchRequest;
+        const body =
+            (await request.json()) as ResumeMatchRequest;
 
-        const {
-            role,
-            jobDescription,
-            requiredSkills,
-            resumeText,
-        } = body;
+        const role =
+            typeof body.role === "string" ? body.role.trim() : "";
+        const jobDescription =
+            typeof body.jobDescription === "string"
+                ? body.jobDescription.trim()
+                : "";
+        const requiredSkills =
+            typeof body.requiredSkills === "string"
+                ? body.requiredSkills.trim()
+                : "";
+        const resumeText =
+            typeof body.resumeText === "string"
+                ? body.resumeText.trim()
+                : "";
 
-        if (
-            typeof role !== "string" ||
-            !role.trim()
-        ) {
+        if (!role) {
             return NextResponse.json(
                 { error: "A target role is required." },
                 { status: 400 }
             );
         }
 
-        if (
-            typeof resumeText !== "string" ||
-            !resumeText.trim()
-        ) {
+        if (!resumeText) {
             return NextResponse.json(
                 { error: "A parsed resume is required for matching." },
                 { status: 400 }
             );
         }
 
-        const jobDescriptionContext =
-            typeof jobDescription === "string" &&
-                jobDescription.trim()
-                ? jobDescription.trim()
-                : "No job description was provided.";
+        const resume = normalize(resumeText);
 
-        const requiredSkillsContext =
-            typeof requiredSkills === "string" &&
-                requiredSkills.trim()
-                ? requiredSkills.trim()
-                : "No specific required skills were provided.";
+        const terms = [
+            ...new Set(
+                extractTerms(`${requiredSkills} ${jobDescription}`)
+            ),
+        ];
 
-        const gemini = new GoogleGenAI({
-            apiKey: process.env.GEMINI_API_KEY,
+        const matchedTerms = terms.filter((term) =>
+            resume.includes(term)
+        );
+
+        const missingTerms = terms.filter(
+            (term) => !resume.includes(term)
+        );
+
+        const roleTerms = extractTerms(role);
+        const roleMatches = roleTerms.filter((term) =>
+            resume.includes(term)
+        );
+
+        const skillScore =
+            terms.length > 0
+                ? matchedTerms.length / terms.length
+                : 0;
+
+        const roleScore =
+            roleTerms.length > 0
+                ? roleMatches.length / roleTerms.length
+                : 0;
+
+        const matchPercentage = Math.round(
+            Math.min(100, skillScore * 80 + roleScore * 20)
+        );
+
+        const matchingStrengths =
+            matchedTerms.length > 0
+                ? matchedTerms.slice(0, 6).map(
+                      (term) =>
+                          `Resume demonstrates experience or knowledge related to ${term}.`
+                  )
+                : [
+                      "The resume was successfully parsed, but few direct matches were found.",
+                  ];
+
+        const missingAreas =
+            missingTerms.length > 0
+                ? missingTerms.slice(0, 6).map(
+                      (term) =>
+                          `Consider strengthening evidence of ${term}.`
+                  )
+                : [
+                      "No major skill gaps were identified from the supplied requirements.",
+                  ];
+
+        const suggestions = [
+            `Tailor the resume toward the ${role} role by emphasizing the most relevant experience.`,
+            ...(missingTerms.length > 0
+                ? [
+                      `Add relevant projects, experience, or achievements related to ${missingTerms
+                          .slice(0, 3)
+                          .join(", ")} if applicable.`,
+                  ]
+                : []),
+            "Use measurable outcomes and specific technologies wherever possible.",
+        ];
+
+        const summary =
+            matchPercentage >= 75
+                ? `The resume shows a strong match for the ${role} role based on the supplied requirements.`
+                : matchPercentage >= 50
+                    ? `The resume shows a moderate match for the ${role} role, with some areas that could be strengthened.`
+                    : `The resume currently shows a limited match for the ${role} role based on the supplied requirements.`;
+
+        return NextResponse.json({
+            matchPercentage,
+            matchingStrengths,
+            missingAreas,
+            suggestions,
+            summary,
         });
-
-        const prompt = `
-Analyze how well this candidate's resume matches the target role.
-
-Target role:
-${role.trim()}
-
-Job description:
-${jobDescriptionContext}
-
-Required skills:
-${requiredSkillsContext}
-
-Resume:
-${resumeText.trim().slice(0, 15000)}
-
-Score the resume realistically from 0 to 100.
-
-Do not inflate the score just to be encouraging.
-
-If the resume is fundamentally unrelated to the target role, give a very low score.
-
-Identify:
-1. Skills, experience, or qualifications that strongly match.
-2. Important missing or weak areas.
-3. Specific improvements the candidate can make to their resume.
-
-Return JSON only.
-`;
-
-        const response =
-            await gemini.models.generateContent({
-                model: "gemini-2.5-flash-lite",
-                contents: prompt,
-                config: {
-                    maxOutputTokens: 2048,
-                    responseMimeType: "application/json",
-                    responseJsonSchema: {
-                        type: "object",
-                        properties: {
-                            matchPercentage: {
-                                type: "number",
-                            },
-                            matchingStrengths: {
-                                type: "array",
-                                items: {
-                                    type: "string",
-                                },
-                            },
-                            missingAreas: {
-                                type: "array",
-                                items: {
-                                    type: "string",
-                                },
-                            },
-                            suggestions: {
-                                type: "array",
-                                items: {
-                                    type: "string",
-                                },
-                            },
-                            summary: {
-                                type: "string",
-                            },
-                        },
-                        required: [
-                            "matchPercentage",
-                            "matchingStrengths",
-                            "missingAreas",
-                            "suggestions",
-                            "summary",
-                        ],
-                    },
-                    thinkingConfig: {
-                        thinkingLevel: ThinkingLevel.MINIMAL,
-                    },
-                },
-            });
-
-        const responseText = response.text?.trim();
-
-        if (!responseText) {
-            return NextResponse.json(
-                { error: "Could not analyze the resume match." },
-                { status: 500 }
-            );
-        }
-
-        const result: unknown =
-            JSON.parse(responseText);
-
-        if (!isResumeMatchResult(result)) {
-            return NextResponse.json(
-                { error: "Resume analysis returned an invalid format." },
-                { status: 500 }
-            );
-        }
-
-        return NextResponse.json(result);
     } catch (error) {
         console.error("Error analyzing resume match:", error);
 
